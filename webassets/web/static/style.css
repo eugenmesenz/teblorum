@@ -1,0 +1,476 @@
+/* ============================================================
+   teblorum — единый файл стилей
+   ============================================================ */
+
+/* --- Reset & base ----------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: var(--font-size, 16px); }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+img { max-width: 100%; height: auto; }
+
+/* --- CSS Custom Properties (темы) ------------------------- */
+:root {
+  --bg:        #ffffff;
+  --bg-alt:    #f5f5f5;
+  --fg:        #111111;
+  --fg-muted:  #555555;
+  --accent:    #1a1a1a;
+  --border:    #dddddd;
+  --font-size: 16px;
+}
+
+[data-theme="dark"] {
+  --bg:        #111111;
+  --bg-alt:    #1c1c1c;
+  --fg:        #e8e8e8;
+  --fg-muted:  #888888;
+  --accent:    #e8e8e8;
+  --border:    #333333;
+}
+
+/* --- Layout ----------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+  flex: 1;
+}
+
+/* --- Navbar ----------------------------------------------- */
+.navbar {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-logo {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--fg);
+}
+.nav-logo:hover { text-decoration: none; }
+
+.nav-links { display: flex; gap: 1rem; }
+.nav-links a { color: var(--fg-muted); }
+.nav-links a:hover { color: var(--fg); text-decoration: none; }
+
+.nav-auth {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.nav-auth a, .nav-auth button {
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+}
+
+.nav-auth a:hover { color: var(--fg); text-decoration: none; }
+
+.nav-messages { position: relative; }
+
+.unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 50%;
+  vertical-align: top;
+}
+
+/* --- Footer ----------------------------------------------- */
+.footer {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.footer-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+}
+
+/* --- Typography ------------------------------------------- */
+h1, h2, h3, h4 { line-height: 1.3; margin-bottom: 0.5rem; }
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.4rem; }
+p  { margin-bottom: 1rem; }
+
+.meta {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.meta a { color: var(--fg-muted); }
+.meta a:hover { color: var(--accent); }
+
+time { white-space: nowrap; }
+
+/* --- Feed (лента) ----------------------------------------- */
+.feed { display: flex; flex-direction: column; gap: 0; }
+
+.feed-item {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.feed-item:last-child { border-bottom: none; }
+
+.feed-item h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.25rem;
+}
+
+.feed-item h2 a { color: var(--fg); }
+.feed-item h2 a:hover { color: var(--accent); }
+
+/* --- Articles / Threads (пост) ---------------------------- */
+.post { margin-bottom: 2rem; }
+
+.post h1 { margin-bottom: 0.25rem; }
+
+.post-body {
+  font-size: 1rem;
+  line-height: 1.75;
+  margin-top: 1rem;
+}
+
+/* --- Comments --------------------------------------------- */
+.comments { margin-top: 2rem; }
+.comments h2 { margin-bottom: 1rem; }
+
+.comment {
+  padding: 0.75rem;
+  border-left: 2px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+.comment-depth-0 { margin-left: 0; }
+.comment-depth-1 { margin-left: 1.5rem; }
+.comment-depth-2 { margin-left: 3rem; }
+.comment-depth-3 { margin-left: 4.5rem; }
+.comment-depth-4 { margin-left: 6rem; }
+.comment-depth-5 { margin-left: 7.5rem; }
+.comment-depth-6 { margin-left: 9rem; }
+
+.comment-meta {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  margin-bottom: 0.25rem;
+}
+
+.comment-meta a { color: var(--fg-muted); }
+.comment-meta a:hover { color: var(--accent); }
+
+.comment-body { font-size: 0.95rem; line-height: 1.5; margin-bottom: 0.5rem; }
+
+.comment-actions { font-size: 0.85rem; }
+
+.comment-actions button {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+}
+
+.comment-actions button:hover { color: var(--accent); }
+
+.comment-children { margin-top: 0.5rem; }
+
+/* --- Pagination ------------------------------------------- */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 0;
+}
+
+.page-link {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+
+.page-link:hover {
+  background: var(--bg-alt);
+  text-decoration: none;
+}
+
+.page-info { color: var(--fg-muted); font-size: 0.85rem; }
+
+/* --- Forms ------------------------------------------------ */
+form { margin-bottom: 1rem; }
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.95rem;
+  font-family: inherit;
+  margin-bottom: 0.75rem;
+}
+
+textarea { resize: vertical; min-height: 100px; }
+
+button, .btn {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-alt);
+  color: var(--fg);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+button:hover, .btn:hover { background: var(--accent); color: var(--bg); }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.btn-primary:hover { opacity: 0.9; }
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  padding: 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.btn-link:hover { background: none; color: var(--fg); }
+
+.inline-form { display: inline; margin: 0; }
+
+/* --- User profile ----------------------------------------- */
+.user-profile { margin-bottom: 2rem; }
+
+.user-profile h1 { margin-bottom: 0.5rem; }
+
+.bio {
+  font-size: 0.95rem;
+  color: var(--fg-muted);
+  margin-bottom: 1rem;
+  white-space: pre-wrap;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.role-moderator { background: #e3f2fd; color: #1565c0; }
+.role-admin      { background: #fce4ec; color: #c62828; }
+.role-root       { background: #fff3e0; color: #e65100; }
+
+[data-theme="dark"] .role-moderator { background: #1a3a5c; color: #90caf9; }
+[data-theme="dark"] .role-admin      { background: #3e1a23; color: #ef9a9a; }
+[data-theme="dark"] .role-root       { background: #3e2e1a; color: #ffcc80; }
+
+.user-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tab-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+}
+
+.tab-btn:hover { color: var(--fg); background: none; }
+.tab-btn.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+
+/* --- Messages --------------------------------------------- */
+.conversations { display: flex; flex-direction: column; }
+
+.conversation-item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.conversation-item:last-child { border-bottom: none; }
+
+.conversation-user { font-weight: 600; }
+
+.conversation-preview {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+}
+
+.message {
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.message-incoming { background: var(--bg-alt); }
+.message-outgoing { background: var(--bg-alt); border-left: 3px solid var(--accent); }
+
+.message-meta {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  margin-bottom: 0.25rem;
+}
+
+/* --- Error pages ------------------------------------------ */
+.error-page {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+
+.error-page h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* --- Auth pages ------------------------------------------- */
+.auth-form {
+  max-width: 400px;
+  margin: 2rem auto;
+}
+
+.auth-form h1 { text-align: center; margin-bottom: 1.5rem; }
+
+.auth-form .btn-primary { width: 100%; }
+
+.auth-separator {
+  text-align: center;
+  margin: 1rem 0;
+  color: var(--fg-muted);
+  position: relative;
+}
+
+.auth-separator::before,
+.auth-separator::after {
+  content: "";
+  display: inline-block;
+  width: 40%;
+  height: 1px;
+  background: var(--border);
+  vertical-align: middle;
+}
+
+.auth-separator::before { margin-right: 0.5rem; }
+.auth-separator::after  { margin-left: 0.5rem; }
+
+/* --- Utility ---------------------------------------------- */
+.text-center { text-align: center; }
+.text-muted  { color: var(--fg-muted); }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+
+/* --- Responsive (Mobile < 640px) -------------------------- */
+@media (max-width: 639px) {
+  .container { padding: 0.75rem; }
+
+  .nav-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .nav-links { order: 3; width: 100%; justify-content: center; }
+
+  .nav-auth { font-size: 0.85rem; gap: 0.75rem; }
+
+  .comment-depth-1 { margin-left: 1rem; }
+  .comment-depth-2 { margin-left: 2rem; }
+  .comment-depth-3 { margin-left: 3rem; }
+  .comment-depth-4 { margin-left: 4rem; }
+  .comment-depth-5 { margin-left: 5rem; }
+  .comment-depth-6 { margin-left: 6rem; }
+
+  h1 { font-size: 1.5rem; }
+}
+
+/* --- Responsive (Tablet 640–1024px) ----------------------- */
+@media (min-width: 640px) and (max-width: 1024px) {
+  .container { padding: 1rem; }
+}
