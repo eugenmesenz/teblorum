@@ -1,0 +1,16 @@
+{{ define "content" }}
+<h1>Лента</h1>
+<div class="feed">
+    {{ range .Posts }}
+    <article class="feed-item">
+        <h2><a href="/{{ if eq .Type "article" }}articles{{ else }}threads{{ end }}/{{ .ID }}">{{ .Title }}</a></h2>
+        <div class="meta">
+            <a href="/users/{{ .AuthorUsername }}">{{ .AuthorUsername }}</a>
+            <time datetime="{{ .CreatedAt }}">{{ .CreatedAt }}</time>
+        </div>
+    </article>
+    {{ else }}
+    <p>Публикаций пока нет.</p>
+    {{ end }}
+</div>
+{{ end }}

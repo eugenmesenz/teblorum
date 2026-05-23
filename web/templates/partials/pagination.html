@@ -1,0 +1,11 @@
+{{ if gt .TotalPages 1 }}
+<div class="pagination">
+    {{ if gt .Page 1 }}
+        <a href="?page={{ sub .Page 1 }}" class="page-link">« Назад</a>
+    {{ end }}
+    <span class="page-info">Страница {{ .Page }} из {{ .TotalPages }}</span>
+    {{ if lt .Page .TotalPages }}
+        <a href="?page={{ add .Page 1 }}" class="page-link">Вперёд »</a>
+    {{ end }}
+</div>
+{{ end }}

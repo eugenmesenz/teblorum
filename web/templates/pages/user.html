@@ -1,0 +1,21 @@
+{{ define "content" }}
+<div class="user-profile">
+    <h1>{{ .Profile.Username }}</h1>
+    {{ if .Profile.Bio }}
+        <p class="bio">{{ .Profile.Bio }}</p>
+    {{ end }}
+    <div class="meta">
+        <span>Зарегистрирован: <time datetime="{{ .Profile.CreatedAt }}">{{ .Profile.CreatedAt }}</time></span>
+        {{ if .Profile.Role }}
+            <span class="role-badge role-{{ .Profile.Role }}">{{ .Profile.Role }}</span>
+        {{ end }}
+    </div>
+    <div class="user-tabs">
+        <button hx-get="/users/{{ .Profile.Username }}/articles" hx-target="#user-content" class="tab-btn active">Статьи</button>
+        <button hx-get="/users/{{ .Profile.Username }}/threads" hx-target="#user-content" class="tab-btn">Треды</button>
+    </div>
+    <div id="user-content">
+        {{ template "user_content" . }}
+    </div>
+</div>
+{{ end }}

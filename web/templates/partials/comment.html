@@ -1,0 +1,19 @@
+<div class="comment comment-depth-{{ .Depth }}" id="comment-{{ .ID }}">
+    <div class="comment-meta">
+        <a href="/users/{{ .AuthorUsername }}">{{ .AuthorUsername }}</a>
+        <time datetime="{{ .CreatedAt }}">{{ .CreatedAt }}</time>
+    </div>
+    <div class="comment-body">{{ .Body }}</div>
+    <div class="comment-actions">
+        <button hx-get="/comments/reply-form?parent_id={{ .ID }}" hx-swap="afterend">
+            Ответить
+        </button>
+    </div>
+    {{ if .Children }}
+        <div class="comment-children">
+            {{ range .Children }}
+                {{ template "comment" . }}
+            {{ end }}
+        </div>
+    {{ end }}
+</div>

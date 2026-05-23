@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="{{ .Theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Title }} — teblorum</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/htmx.min.js" defer></script>
+    {{ block "head" . }}{{ end }}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">teblorum</a>
+            <div class="nav-links">
+                <a href="/articles">Статьи</a>
+                <a href="/threads">Треды</a>
+            </div>
+            <div class="nav-auth">
+                {{ if .CurrentUser }}
+                    <a href="/messages" class="nav-messages">
+                        Сообщения
+                        {{ if gt .UnreadCount 0 }}
+                            <span class="unread-badge">{{ .UnreadCount }}</span>
+                        {{ end }}
+                    </a>
+                    <a href="/users/{{ .CurrentUser.Username }}">{{ .CurrentUser.Username }}</a>
+                    <form action="/auth/logout" method="POST" class="inline-form">
+                        <button type="submit" class="btn-link">Выйти</button>
+                    </form>
+                {{ else }}
+                    <a href="/auth/login">Войти</a>
+                    <a href="/auth/register">Регистрация</a>
+                {{ end }}
+            </div>
+        </div>
+    </nav>
+    <main class="container">
+        {{ block "content" . }}{{ end }}
+    </main>
+    <footer class="footer">
+        <div class="footer-inner">
+            <span>teblorum — платформа текстовых публикаций</span>
+        </div>
+    </footer>
+</body>
+</html>

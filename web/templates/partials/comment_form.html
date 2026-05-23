@@ -1,0 +1,7 @@
+<form hx-post="/comments/{{ .PostID }}" hx-target="#comments-root" hx-swap="beforeend" class="comment-form">
+    <textarea name="body" rows="3" required placeholder="Напишите комментарий..."></textarea>
+    {{ if .ParentID }}
+        <input type="hidden" name="parent_id" value="{{ .ParentID }}">
+    {{ end }}
+    <button type="submit">Отправить</button>
+</form>

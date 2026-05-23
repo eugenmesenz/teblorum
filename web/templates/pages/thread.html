@@ -1,0 +1,16 @@
+{{ define "content" }}
+<article class="post">
+    <h1>{{ .Title }}</h1>
+    <div class="meta">
+        <a href="/users/{{ .AuthorUsername }}">{{ .AuthorUsername }}</a>
+        <time datetime="{{ .CreatedAt }}">{{ .CreatedAt }}</time>
+    </div>
+    <div class="post-body">
+        {{ .Body }}
+    </div>
+</article>
+<section class="comments">
+    <h2>Ответы</h2>
+    <div id="comments-root">{{ .CommentTree }}</div>
+</section>
+{{ end }}
