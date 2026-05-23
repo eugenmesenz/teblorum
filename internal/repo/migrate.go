@@ -4,15 +4,27 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"log"
 	"strings"
 )
 
-//go:embed sql/001_init.sql
+//go:embed sql/*.sql
 var migrationFS embed.FS
 
-const schemaVersion = 1
+// migrations — список миграций в порядке применения.
+// Каждый элемент: номер версии → имя файла с SQL.
+var migrations = []struct {
+	version  int
+	filename string
+}{
+	{1, "sql/001_init.sql"},
+	{2, "sql/002_password_resets.sql"},
+}
 
-// RunMigrations применяет миграции к базе данных.
+// latestSchemaVersion — максимальная версия схемы БД.
+const latestSchemaVersion = 2
+
+// RunMigrations применяет все неприменённые миграции к базе данных.
 func RunMigrations(db *sql.DB) error {
 	// Создаём таблицу schema_migrations, если её нет
 	_, err := db.Exec(`
@@ -32,38 +44,45 @@ func RunMigrations(db *sql.DB) error {
 		return fmt.Errorf("read current migration version: %w", err)
 	}
 
-	if currentVersion >= schemaVersion {
-		return nil // уже применено
+	if currentVersion >= latestSchemaVersion {
+		return nil
 	}
 
-	// Читаем SQL-миграцию
-	sqlBytes, err := migrationFS.ReadFile("sql/001_init.sql")
-	if err != nil {
-		return fmt.Errorf("read migration file: %w", err)
-	}
-
-	// Выполняем каждое выражение отдельно
-	statements := strings.Split(string(sqlBytes), ";")
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" || strings.HasPrefix(stmt, "--") {
+	// Применяем миграции последовательно
+	for _, m := range migrations {
+		if m.version <= currentVersion {
 			continue
 		}
-		if _, err := db.Exec(stmt); err != nil {
-			return fmt.Errorf("execute migration statement: %w (stmt: %s)", err, stmt[:min(len(stmt), 80)])
-		}
-	}
+		log.Printf("applying migration %d (%s)", m.version, m.filename)
 
-	// Записываем версию
-	_, err = db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", schemaVersion)
-	if err != nil {
-		return fmt.Errorf("record migration version: %w", err)
+		sqlBytes, err := migrationFS.ReadFile(m.filename)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", m.filename, err)
+		}
+
+		// Выполняем каждое выражение отдельно
+		statements := strings.Split(string(sqlBytes), ";")
+		for _, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" || strings.HasPrefix(stmt, "--") {
+				continue
+			}
+			if _, err := db.Exec(stmt); err != nil {
+				return fmt.Errorf("execute migration %d statement: %w (stmt: %s)",
+					m.version, err, stmt[:min(len(stmt), 80)])
+			}
+		}
+
+		// Записываем версию
+		_, err = db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", m.version)
+		if err != nil {
+			return fmt.Errorf("record migration version %d: %w", m.version, err)
+		}
 	}
 
 	return nil
 }
 
-// min — вспомогательная функция
 func min(a, b int) int {
 	if a < b {
 		return a

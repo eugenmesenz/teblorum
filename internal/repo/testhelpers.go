@@ -175,5 +175,17 @@ func SeedComment(t *testing.T, db *sql.DB, overrides map[string]interface{}) *mo
 	return comment
 }
 
+// SeedSession создаёт сессию в тестовой БД.
+func SeedSession(t *testing.T, db *sql.DB, userID int64) *model.Session {
+	t.Helper()
+
+	repo := NewSessionRepo(db)
+	session, err := repo.Create(userID, 30)
+	if err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	return session
+}
+
 // Ensure fmt is used
 var _ = fmt.Sprintf
