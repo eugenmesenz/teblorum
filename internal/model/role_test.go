@@ -6,9 +6,9 @@ import (
 
 func TestRoleLevel(t *testing.T) {
 	tests := []struct {
-		name  string
-		role  Role
-		want  int
+		name string
+		role Role
+		want int
 	}{
 		{"user", RoleUser, 0},
 		{"moderator", RoleModerator, 1},
