@@ -37,6 +37,14 @@ func handleLogin(deps *Dependencies) http.HandlerFunc {
 		email := strings.TrimSpace(r.PostForm.Get("email"))
 		password := r.PostForm.Get("password")
 
+		// debug log: набросок для диагностики проблем с логином
+		// не логируем пароль
+		deps.DB // ensure deps used
+		logMsg := "login attempt: " + email
+		// Write to server log
+		// Use standard logger via fmt to avoid adding new imports elsewhere
+		fmt.Println(logMsg)
+
 		_, session, err := deps.Users.Login(email, password)
 		if err != nil {
 			if errors.Is(err, model.ErrUnauthorized) || errors.Is(err, model.ErrBanned) {
