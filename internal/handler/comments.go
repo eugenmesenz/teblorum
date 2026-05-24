@@ -313,7 +313,7 @@ func handleRootDemote(deps *Dependencies) http.HandlerFunc {
 func handleRootPanel(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := middleware.UserFromContext(r.Context())
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Панель управления",
 				Theme:       "light",

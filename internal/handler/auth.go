@@ -22,7 +22,7 @@ func handleLoginForm(deps *Dependencies) http.HandlerFunc {
 			PageData:       render.PageData{Title: "Вход", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
 			GoogleClientID: deps.GoogleClientID,
 		}
-		deps.Renderer.PageHTTP(w, "login", data, render.DetectHTMX(r))
+		deps.Renderer.PageHTTP(w, "login", &data, render.DetectHTMX(r))
 	}
 }
 
@@ -68,7 +68,7 @@ func handleLogin(deps *Dependencies) http.HandlerFunc {
 // handleRegisterForm показывает форму регистрации.
 func handleRegisterForm(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deps.Renderer.PageHTTP(w, "register", render.AuthPageData{
+		deps.Renderer.PageHTTP(w, "register", &render.AuthPageData{
 			PageData: render.PageData{Title: "Регистрация", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
 		}, render.DetectHTMX(r))
 	}
@@ -245,7 +245,7 @@ func handleForgot(deps *Dependencies) http.HandlerFunc {
 		}
 		_ = token
 
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{Title: "Проверьте email", Theme: "light"},
 		}, render.DetectHTMX(r))
 	}
@@ -260,7 +260,7 @@ func handleResetForm(deps *Dependencies) http.HandlerFunc {
 			return
 		}
 
-		deps.Renderer.PageHTTP(w, "reset", render.AuthPageData{
+		deps.Renderer.PageHTTP(w, "reset", &render.AuthPageData{
 			PageData: render.PageData{Title: "Новый пароль", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
 		}, render.DetectHTMX(r))
 	}

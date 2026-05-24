@@ -67,7 +67,7 @@ func handleFeed(deps *Dependencies, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deps.Renderer.PageHTTP(w, "feed", data, false)
+	deps.Renderer.PageHTTP(w, "feed", &data, false)
 }
 
 // handleArticlesList обрабатывает GET /articles.
@@ -104,7 +104,7 @@ func handleArticlesList(deps *Dependencies) http.HandlerFunc {
 			},
 		}
 
-		deps.Renderer.PageHTTP(w, "feed", data, render.DetectHTMX(r))
+		deps.Renderer.PageHTTP(w, "feed", &data, render.DetectHTMX(r))
 	}
 }
 
@@ -142,7 +142,7 @@ func handleThreadsList(deps *Dependencies) http.HandlerFunc {
 			},
 		}
 
-		deps.Renderer.PageHTTP(w, "feed", data, render.DetectHTMX(r))
+		deps.Renderer.PageHTTP(w, "feed", &data, render.DetectHTMX(r))
 	}
 }
 
@@ -199,7 +199,7 @@ func handleArticlePage(deps *Dependencies) http.HandlerFunc {
 			CommentTree:     commentHTML,
 		}
 
-		deps.Renderer.PageHTTP(w, "article", data, render.DetectHTMX(r))
+		deps.Renderer.PageHTTP(w, "article", &data, render.DetectHTMX(r))
 	}
 }
 
@@ -253,14 +253,14 @@ func handleThreadPage(deps *Dependencies) http.HandlerFunc {
 			CommentTree:    commentHTML,
 		}
 
-		deps.Renderer.PageHTTP(w, "thread", data, render.DetectHTMX(r))
+		deps.Renderer.PageHTTP(w, "thread", &data, render.DetectHTMX(r))
 	}
 }
 
 // handleNewArticleForm обрабатывает GET /articles/new.
 func handleNewArticleForm(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Новая статья",
 				Theme:       "light",
@@ -313,7 +313,7 @@ func handleCreateArticle(deps *Dependencies) http.HandlerFunc {
 // handleNewThreadForm обрабатывает GET /threads/new.
 func handleNewThreadForm(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Новый тред",
 				Theme:       "light",
@@ -384,7 +384,7 @@ func handleEditArticleForm(deps *Dependencies) http.HandlerFunc {
 			return
 		}
 
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Редактирование",
 				Theme:       "light",

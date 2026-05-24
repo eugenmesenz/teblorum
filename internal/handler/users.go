@@ -27,7 +27,7 @@ func handleMessagesList(deps *Dependencies) http.HandlerFunc {
 		}
 		_ = conversations
 
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Сообщения",
 				Theme:       "light",
@@ -66,7 +66,7 @@ func handleConversation(deps *Dependencies) http.HandlerFunc {
 		}
 		_ = messages
 
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Диалог с " + otherUser.Username,
 				Theme:       "light",
@@ -136,7 +136,7 @@ func handleSettings(deps *Dependencies) http.HandlerFunc {
 			return
 		}
 
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
+		deps.Renderer.PageHTTP(w, "feed", &render.FeedPageData{
 			PageData: render.PageData{
 				Title:       "Настройки",
 				Theme:       "light",
@@ -215,7 +215,7 @@ func handleUserPage(deps *Dependencies) http.HandlerFunc {
 			},
 		}
 
-		deps.Renderer.PageHTTP(w, "user", data, render.DetectHTMX(r))
+		deps.Renderer.PageHTTP(w, "user", &data, render.DetectHTMX(r))
 	}
 }
 
