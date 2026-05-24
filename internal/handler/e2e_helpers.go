@@ -2,10 +2,13 @@ package handler
 
 import (
 	"database/sql"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -115,6 +118,61 @@ func (s *e2eSuite) getWithHX(t *testing.T, path string) *http.Response {
 	}
 	t.Cleanup(func() { resp.Body.Close() })
 	return resp
+}
+
+// postForm выполняет POST-запрос с form-urlencoded данными.
+func (s *e2eSuite) postForm(t *testing.T, path string, data map[string]string) *http.Response {
+	t.Helper()
+	form := url.Values{}
+	for k, v := range data {
+		form.Set(k, v)
+	}
+	resp, err := s.client.PostForm(s.server.URL+path, form)
+	if err != nil {
+		t.Fatalf("POST %s: %v", path, err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	return resp
+}
+
+// postFormWithHX выполняет POST-запрос с HTMX-заголовком.
+func (s *e2eSuite) postFormWithHX(t *testing.T, path string, data map[string]string) *http.Response {
+	t.Helper()
+	form := url.Values{}
+	for k, v := range data {
+		form.Set(k, v)
+	}
+	req, err := http.NewRequest(http.MethodPost, s.server.URL+path, strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	resp, err := s.client.Do(req)
+	if err != nil {
+		t.Fatalf("POST (HTMX) %s: %v", path, err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	return resp
+}
+
+// readBody читает тело ответа целиком.
+func readBody(t *testing.T, resp *http.Response) string {
+	t.Helper()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	return string(b)
+}
+
+// truncate обрезает строку до n символов для вывода в сообщениях об ошибках.
+func truncate(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n]) + "..."
 }
 
 // e2eTestFS возвращает минимальную файловую систему шаблонов для тестов.

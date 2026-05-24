@@ -2,8 +2,8 @@ package handler
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -224,22 +224,276 @@ func TestE2E_GroupA(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Вспомогательные функции
+// Группа B: Регистрация и аутентификация
 // ---------------------------------------------------------------------------
 
-func readBody(t *testing.T, resp *http.Response) string {
-	t.Helper()
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read body: %v", err)
-	}
-	return string(b)
-}
+func TestE2E_GroupB(t *testing.T) {
+	suite := newE2ESuite(t)
 
-func truncate(s string, n int) string {
-	runes := []rune(s)
-	if len(runes) <= n {
-		return s
-	}
-	return string(runes[:n]) + "..."
+	// B1: Успешная регистрация
+	t.Run("B1_RegisterSuccess", func(t *testing.T) {
+		resp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "newuser@example.com",
+			"username": "newuser",
+			"password": "password123",
+		})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after register)", resp.StatusCode, http.StatusSeeOther)
+		}
+		// Проверяем редирект на /
+		loc := resp.Header.Get("Location")
+		if loc != "/" {
+			t.Errorf("Location = %q, want /", loc)
+		}
+		// Проверяем, что установлена cookie сессии
+		cookies := resp.Cookies()
+		found := false
+		for _, c := range cookies {
+			if c.Name == "session_id" && c.Value != "" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("session_id cookie not set after registration")
+		}
+	})
+
+	// B2: Дубликат email
+	t.Run("B2_DuplicateEmail", func(t *testing.T) {
+		// Сначала регистрируем пользователя
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "dup@example.com",
+			"username": "dupuser1",
+			"password": "password123",
+		})
+
+		// Пытаемся зарегистрироваться с тем же email
+		resp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "dup@example.com",
+			"username": "dupuser2",
+			"password": "password123",
+		})
+		if resp.StatusCode != http.StatusConflict {
+			t.Errorf("status = %d, want %d (conflict on duplicate email)", resp.StatusCode, http.StatusConflict)
+		}
+	})
+
+	// B3: Дубликат username
+	t.Run("B3_DuplicateUsername", func(t *testing.T) {
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "first@example.com",
+			"username": "sameuser",
+			"password": "password123",
+		})
+
+		resp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "second@example.com",
+			"username": "sameuser",
+			"password": "password123",
+		})
+		if resp.StatusCode != http.StatusConflict {
+			t.Errorf("status = %d, want %d (conflict on duplicate username)", resp.StatusCode, http.StatusConflict)
+		}
+	})
+
+	// B4: Пустой пароль (хендлер возвращает 409 для ErrValidation)
+	t.Run("B4_EmptyPassword", func(t *testing.T) {
+		resp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "nopass@example.com",
+			"username": "nopass",
+			"password": "",
+		})
+		if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want 409 or 400 (validation error on empty password)", resp.StatusCode)
+		}
+	})
+
+	// B5: Успешный вход
+	t.Run("B5_LoginSuccess", func(t *testing.T) {
+		// Сначала регистрируемся
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "logintest@example.com",
+			"username": "logintest",
+			"password": "password123",
+		})
+
+		// Создаём новый клиент без cookie (чтобы не было сессии от регистрации)
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form := url.Values{}
+		form.Set("email", "logintest@example.com")
+		form.Set("password", "password123")
+		resp, err := cleanClient.PostForm(suite.server.URL+"/auth/login", form)
+		if err != nil {
+			t.Fatalf("POST login: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after login)", resp.StatusCode, http.StatusSeeOther)
+		}
+		loc := resp.Header.Get("Location")
+		if loc != "/" {
+			t.Errorf("Location = %q, want /", loc)
+		}
+		// Проверяем cookie сессии
+		cookies := resp.Cookies()
+		found := false
+		for _, c := range cookies {
+			if c.Name == "session_id" && c.Value != "" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("session_id cookie not set after login")
+		}
+	})
+
+	// B6: Неверный пароль
+	t.Run("B6_WrongPassword", func(t *testing.T) {
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "wrongpass@example.com",
+			"username": "wrongpass",
+			"password": "correctpassword",
+		})
+
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form := url.Values{}
+		form.Set("email", "wrongpass@example.com")
+		form.Set("password", "wrongpassword")
+		resp, err := cleanClient.PostForm(suite.server.URL+"/auth/login", form)
+		if err != nil {
+			t.Fatalf("POST login: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("status = %d, want %d (unauthorized on wrong password)", resp.StatusCode, http.StatusUnauthorized)
+		}
+	})
+
+	// B7: Несуществующий email
+	t.Run("B7_UnknownEmail", func(t *testing.T) {
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form := url.Values{}
+		form.Set("email", "nobody@example.com")
+		form.Set("password", "password123")
+		resp, err := cleanClient.PostForm(suite.server.URL+"/auth/login", form)
+		if err != nil {
+			t.Fatalf("POST login: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("status = %d, want %d (unauthorized on unknown email)", resp.StatusCode, http.StatusUnauthorized)
+		}
+	})
+
+	// B8: Выход из системы
+	t.Run("B8_Logout", func(t *testing.T) {
+		// Регистрируемся и получаем сессию
+		resp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "logouttest@example.com",
+			"username": "logouttest",
+			"password": "password123",
+		})
+		// Сохраняем cookie из ответа
+		sessionCookie := ""
+		for _, c := range resp.Cookies() {
+			if c.Name == "session_id" {
+				sessionCookie = c.Value
+			}
+		}
+		if sessionCookie == "" {
+			t.Fatal("no session cookie after registration")
+		}
+
+		// Создаём клиент с этой cookie
+		authedClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		// Добавляем cookie вручную
+		req, _ := http.NewRequest("POST", suite.server.URL+"/auth/logout", nil)
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionCookie})
+		logoutResp, err := authedClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST logout: %v", err)
+		}
+		defer logoutResp.Body.Close()
+
+		if logoutResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after logout)", logoutResp.StatusCode, http.StatusSeeOther)
+		}
+		// Проверяем, что cookie удалена (MaxAge < 0)
+		foundExpired := false
+		for _, c := range logoutResp.Cookies() {
+			if c.Name == "session_id" && c.MaxAge < 0 {
+				foundExpired = true
+				break
+			}
+		}
+		if !foundExpired {
+			t.Error("session_id cookie should be expired after logout")
+		}
+	})
+
+	// B9: Доступ без сессии (редирект на логин)
+	t.Run("B9_AccessWithoutSession", func(t *testing.T) {
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		resp, err := cleanClient.Get(suite.server.URL + "/settings")
+		if err != nil {
+			t.Fatalf("GET /settings: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect to login)", resp.StatusCode, http.StatusSeeOther)
+		}
+		loc := resp.Header.Get("Location")
+		if loc != "/auth/login" {
+			t.Errorf("Location = %q, want /auth/login", loc)
+		}
+	})
+
+	// B10: HTMX: доступ без сессии
+	t.Run("B10_HTMX_AccessWithoutSession", func(t *testing.T) {
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		req, _ := http.NewRequest("GET", suite.server.URL+"/settings", nil)
+		req.Header.Set("HX-Request", "true")
+		resp, err := cleanClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET /settings (HTMX): %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("status = %d, want %d (HTMX 401)", resp.StatusCode, http.StatusUnauthorized)
+		}
+		if resp.Header.Get("HX-Redirect") != "/auth/login" {
+			t.Errorf("HX-Redirect = %q, want /auth/login", resp.Header.Get("HX-Redirect"))
+		}
+	})
 }
