@@ -181,7 +181,7 @@ func handleArticlePage(deps *Dependencies) http.HandlerFunc {
 
 		// Рендерим дерево комментариев
 		commentTree, _ := deps.Comments.GetTree(post.ID)
-		commentHTML := renderCommentTree(deps, commentTree)
+		commentHTML := renderCommentTree(commentTree)
 
 		currentUser := middleware.UserFromContext(r.Context())
 
@@ -236,7 +236,7 @@ func handleThreadPage(deps *Dependencies) http.HandlerFunc {
 		}
 
 		commentTree, _ := deps.Comments.GetTree(post.ID)
-		commentHTML := renderCommentTree(deps, commentTree)
+		commentHTML := renderCommentTree(commentTree)
 
 		currentUser := middleware.UserFromContext(r.Context())
 
@@ -475,7 +475,7 @@ func buildFeedPosts(deps *Dependencies, posts []*model.Post) []*render.FeedPost 
 	return feedPosts
 }
 
-func renderCommentTree(deps *Dependencies, tree []*model.CommentTreeNode) string {
+func renderCommentTree(tree []*model.CommentTreeNode) string {
 	if len(tree) == 0 {
 		return "<p>Нет комментариев.</p>"
 	}

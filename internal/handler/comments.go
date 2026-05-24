@@ -113,7 +113,7 @@ func handleCommentChildren(deps *Dependencies) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(renderCommentTree(deps, children)))
+		w.Write([]byte(renderCommentTree(children)))
 	}
 }
 
