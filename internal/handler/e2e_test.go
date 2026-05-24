@@ -1592,3 +1592,316 @@ func TestE2E_GroupI(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Группа J: Комплексные сценарии (multi-step)
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupJ(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// J1: Полный цикл: регистрация → создание статьи → комментарий
+	t.Run("J1_FullCycle_Article", func(t *testing.T) {
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "j1@example.com",
+			"username": "j1user",
+			"password": "password123",
+		})
+
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title":            "J1 Article",
+			"body":             "J1 article body for test cycle",
+			"comments_enabled": "on",
+		})
+		if cr.StatusCode != http.StatusSeeOther {
+			t.Fatalf("create article: status=%d", cr.StatusCode)
+		}
+		parts := strings.Split(strings.TrimPrefix(cr.Header.Get("Location"), "/articles/"), "-")
+		postID := parts[0]
+
+		cmtResp := suite.postForm(t, "/posts/"+postID+"/comments", map[string]string{
+			"body": "J1 comment on article",
+		})
+		if cmtResp.StatusCode != http.StatusOK && cmtResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("create comment: status=%d, want 200 or 302", cmtResp.StatusCode)
+		}
+	})
+
+	// J2: Регистрация → создание треда → ответ
+	t.Run("J2_FullCycle_Thread", func(t *testing.T) {
+		// Создаём нового пользователя (предыдущая сессия перезаписывается в jar)
+		jar2, _ := cookiejar.New(nil)
+		client2 := &http.Client{
+			Jar: jar2,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form2 := url.Values{}
+		form2.Set("email", "j2@example.com")
+		form2.Set("username", "j2user")
+		form2.Set("password", "password123")
+		reg2, _ := client2.PostForm(suite.server.URL+"/auth/register", form2)
+		reg2.Body.Close()
+
+		// Создаём тред
+		form := url.Values{}
+		form.Set("title", "J2 Thread")
+		form.Set("body", "J2 thread body for test cycle")
+		req, _ := http.NewRequest("POST", suite.server.URL+"/threads", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		cr, err := client2.Do(req)
+		if err != nil {
+			t.Fatalf("create thread: %v", err)
+		}
+		cr.Body.Close()
+		parts := strings.Split(strings.TrimPrefix(cr.Header.Get("Location"), "/threads/"), "-")
+		threadID := parts[0]
+
+		// Комментируем
+		cmtForm := url.Values{}
+		cmtForm.Set("body", "J2 reply in thread")
+		cmtReq, _ := http.NewRequest("POST", suite.server.URL+"/posts/"+threadID+"/comments", strings.NewReader(cmtForm.Encode()))
+		cmtReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		cmtResp, err := client2.Do(cmtReq)
+		if err != nil {
+			t.Fatalf("create comment: %v", err)
+		}
+		cmtResp.Body.Close()
+		if cmtResp.StatusCode != http.StatusOK && cmtResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("create comment: status=%d, want 200 or 302", cmtResp.StatusCode)
+		}
+	})
+
+	// J3: Вход → создание статьи → редактирование → удаление модератором
+	t.Run("J3_LoginCreateEditModDelete", func(t *testing.T) {
+		// Регистрируем автора
+		regResp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "j3author@example.com",
+			"username": "j3author",
+			"password": "password123",
+		})
+		if regResp.StatusCode != http.StatusSeeOther {
+			t.Fatalf("register: status=%d", regResp.StatusCode)
+		}
+
+		// Создаём статью
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title": "J3 Article",
+			"body":  "J3 article body for testing cycle",
+		})
+		if cr.StatusCode != http.StatusSeeOther {
+			t.Fatalf("create article: status=%d", cr.StatusCode)
+		}
+		parts := strings.Split(strings.TrimPrefix(cr.Header.Get("Location"), "/articles/"), "-")
+		postID := parts[0]
+
+		// Редактируем
+		editResp := suite.postForm(t, "/articles/"+postID, map[string]string{
+			"title": "J3 Article Updated",
+			"body":  "J3 updated body for testing cycle",
+		})
+		if editResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("edit article: status=%d", editResp.StatusCode)
+		}
+
+		// Удаляем модератором
+		modUser := repo.SeedUser(t, suite.db, map[string]interface{}{
+			"username": "j3mod",
+			"email":    "j3mod@example.com",
+			"role":     model.RoleModerator,
+		})
+		modSession := repo.SeedSession(t, suite.db, modUser.ID)
+		jarMod, _ := cookiejar.New(nil)
+		modClient := &http.Client{
+			Jar: jarMod,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		cookieURL, _ := url.Parse(suite.server.URL)
+		jarMod.SetCookies(cookieURL, []*http.Cookie{{Name: "session_id", Value: modSession.ID}})
+
+		delReq, _ := http.NewRequest("POST", suite.server.URL+"/mod/posts/"+postID+"/delete", nil)
+		delResp, err := modClient.Do(delReq)
+		if err != nil {
+			t.Fatalf("mod delete: %v", err)
+		}
+		delResp.Body.Close()
+		if delResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("mod delete: status=%d", delResp.StatusCode)
+		}
+	})
+
+	// J4: Диалог: UserA → UserB → ответ
+	t.Run("J4_Dialog_UserA_to_UserB", func(t *testing.T) {
+		// UserA
+		jarA, _ := cookiejar.New(nil)
+		clientA := &http.Client{
+			Jar: jarA,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		formA := url.Values{}
+		formA.Set("email", "usera@example.com")
+		formA.Set("username", "usera")
+		formA.Set("password", "password123")
+		regA, _ := clientA.PostForm(suite.server.URL+"/auth/register", formA)
+		regA.Body.Close()
+
+		// UserB
+		jarB, _ := cookiejar.New(nil)
+		clientB := &http.Client{
+			Jar: jarB,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		formB := url.Values{}
+		formB.Set("email", "userb@example.com")
+		formB.Set("username", "userb")
+		formB.Set("password", "password123")
+		regB, _ := clientB.PostForm(suite.server.URL+"/auth/register", formB)
+		regB.Body.Close()
+
+		// A → B
+		msgForm := url.Values{}
+		msgForm.Set("body", "Hello from UserA!")
+		msgResp, _ := clientA.PostForm(suite.server.URL+"/messages/userb", msgForm)
+		if msgResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("A→B message: status=%d", msgResp.StatusCode)
+		}
+		msgResp.Body.Close()
+
+		// B отвечает A
+		replyForm := url.Values{}
+		replyForm.Set("body", "Hi UserA, this is UserB!")
+		replyResp, _ := clientB.PostForm(suite.server.URL+"/messages/usera", replyForm)
+		if replyResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("B→A reply: status=%d", replyResp.StatusCode)
+		}
+		replyResp.Body.Close()
+	})
+
+	// J5: Бан пользователя → попытка входа (401)
+	t.Run("J5_BanThenLoginDenied", func(t *testing.T) {
+		// Регистрируем цель для бана
+		regResp := suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "tobebanned@example.com",
+			"username": "tobebanned",
+			"password": "password123",
+		})
+		regResp.Body.Close()
+
+		// ID будет 1 (первый в этой группе после J3), но safer: узнаем из БД
+		var targetID int64
+		suite.db.QueryRow("SELECT id FROM users WHERE email = ?", "tobebanned@example.com").Scan(&targetID)
+
+		// Баним через репозиторий
+		suite.db.Exec("UPDATE users SET banned_until = datetime('now', '+1 day') WHERE id = ?", targetID)
+
+		// Пытаемся войти
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form := url.Values{}
+		form.Set("email", "tobebanned@example.com")
+		form.Set("password", "password123")
+		loginResp, _ := cleanClient.PostForm(suite.server.URL+"/auth/login", form)
+		defer loginResp.Body.Close()
+
+		if loginResp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("banned user login: status=%d, want %d", loginResp.StatusCode, http.StatusUnauthorized)
+		}
+	})
+
+	// J6: Регистрация → создание поста → просмотр ленты анонимом
+	t.Run("J6_CreatePostThenAnonymousFeed", func(t *testing.T) {
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "j6@example.com",
+			"username": "j6user",
+			"password": "password123",
+		})
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title": "J6 Visible Post",
+			"body":  "J6 body visible in feed",
+		})
+		if cr.StatusCode != http.StatusSeeOther {
+			t.Fatalf("create article: status=%d", cr.StatusCode)
+		}
+
+		// Анонимный клиент
+		anonClient := &http.Client{}
+		resp, err := anonClient.Get(suite.server.URL + "/")
+		if err != nil {
+			t.Fatalf("anonymous feed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("anonymous feed: status=%d", resp.StatusCode)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "J6 Visible Post") {
+			t.Errorf("post should appear in anonymous feed, got: %s", truncate(body, 300))
+		}
+	})
+
+	// J7: Пагинация: 35 постов
+	t.Run("J7_Pagination35Posts", func(t *testing.T) {
+		// Регистрируемся
+		jarP, _ := cookiejar.New(nil)
+		clientP := &http.Client{
+			Jar: jarP,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		formP := url.Values{}
+		formP.Set("email", "j7@example.com")
+		formP.Set("username", "j7user")
+		formP.Set("password", "password123")
+		regP, _ := clientP.PostForm(suite.server.URL+"/auth/register", formP)
+		regP.Body.Close()
+
+		// Создаём 35 постов
+		for i := 1; i <= 35; i++ {
+			f := url.Values{}
+			f.Set("title", fmt.Sprintf("Pagination Post %d", i))
+			f.Set("body", fmt.Sprintf("Body for post number %d in pagination test", i))
+			req, _ := http.NewRequest("POST", suite.server.URL+"/articles", strings.NewReader(f.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			resp, _ := clientP.Do(req)
+			resp.Body.Close()
+		}
+
+		// Создаём анонимного клиента для проверки
+		anonClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		// Страница 1: 30 постов
+		page1Resp, _ := anonClient.Get(suite.server.URL + "/")
+		page1Body := readBody(t, page1Resp)
+		if !strings.Contains(page1Body, "Pagination Post 1") {
+			t.Errorf("page 1 should contain first post, got: %s", truncate(page1Body, 300))
+		}
+		if !strings.Contains(page1Body, "Pagination Post 30") {
+			t.Errorf("page 1 should contain post 30, got: %s", truncate(page1Body, 300))
+		}
+		page1Resp.Body.Close()
+
+		// Страница 2: 5 постов (самые старые: post 5, 4, 3, 2, 1 в порядке убывания)
+		page2Resp, _ := anonClient.Get(suite.server.URL + "/?page=2")
+		page2Body := readBody(t, page2Resp)
+		if !strings.Contains(page2Body, "Pagination Post 5") {
+			t.Errorf("page 2 should contain post 5, got: %s", truncate(page2Body, 300))
+		}
+		page2Resp.Body.Close()
+	})
+}
