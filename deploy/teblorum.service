@@ -1,0 +1,27 @@
+[Unit]
+Description=teblorum — платформа текстовых публикаций
+After=network.target
+
+[Service]
+Type=simple
+User=teblorum
+Group=teblorum
+WorkingDirectory=/opt/teblorum
+ExecStart=/opt/teblorum/teblorum
+Restart=on-failure
+RestartSec=5
+Environment=TEBLORUM_CONFIG=/opt/teblorum/config.json
+Environment=TEBLORUM_DB_PATH=/opt/teblorum/data/teblorum.db
+Environment=TEBLORUM_ADDR=:8080
+
+# Безопасность
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/teblorum/data /opt/teblorum/backups
+PrivateTmp=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
