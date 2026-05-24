@@ -38,9 +38,7 @@ func handleLogin(deps *Dependencies) http.HandlerFunc {
 		email := strings.TrimSpace(r.PostForm.Get("email"))
 		password := r.PostForm.Get("password")
 
-		// debug log: набросок для диагностики проблем с логином (temporary)
-		// не логируем пароль
-		fmt.Println("login attempt:", email)
+		// debug logs removed
 
 		_, session, err := deps.Users.Login(email, password)
 		if err != nil {

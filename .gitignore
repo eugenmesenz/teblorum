@@ -1,6 +1,6 @@
 # Бинарник
 teblorum
-teblorum.exe
+teblorum.*
 
 # База данных
 *.db
