@@ -44,8 +44,8 @@
         <div class="nav-inner">
             <a href="/" class="nav-logo">teblorum</a>
             <div class="nav-links">
-                <a href="/articles">Статьи</a>
-                <a href="/threads">Треды</a>
+                <a href="/articles" class="{{ if eq .Title "Статьи" }}active{{ end }}">Статьи</a>
+                <a href="/threads" class="{{ if eq .Title "Треды" }}active{{ end }}">Треды</a>
             </div>
             <div class="nav-controls">
                 <button class="btn-icon" onclick="changeSize(-1)" title="Уменьшить шрифт" aria-label="Уменьшить шрифт">A−</button>
