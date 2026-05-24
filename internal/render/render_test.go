@@ -36,6 +36,36 @@ func testFS(t *testing.T) fstest.MapFS {
 		"web/templates/pages/user.html": &fstest.MapFile{
 			Data: []byte(`{{ define "content" }}<h1>{{ .Profile.Username }}</h1>{{ end }}`),
 		},
+		"web/templates/pages/login.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Login</h1>{{ end }}`),
+		},
+		"web/templates/pages/register.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Register</h1>{{ end }}`),
+		},
+		"web/templates/pages/forgot.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Forgot</h1>{{ end }}`),
+		},
+		"web/templates/pages/reset.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Reset</h1>{{ end }}`),
+		},
+		"web/templates/pages/messages.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Messages</h1>{{ end }}`),
+		},
+		"web/templates/pages/conversation.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Conversation</h1>{{ end }}`),
+		},
+		"web/templates/pages/settings.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Settings</h1>{{ end }}`),
+		},
+		"web/templates/pages/new_post.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>New Post</h1>{{ end }}`),
+		},
+		"web/templates/pages/edit_post.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Edit Post</h1>{{ end }}`),
+		},
+		"web/templates/pages/root.html": &fstest.MapFile{
+			Data: []byte(`{{ define "content" }}<h1>Root Panel</h1>{{ end }}`),
+		},
 		"web/templates/partials/comment.html": &fstest.MapFile{
 			Data: []byte(`<div class="comment">{{ .Body }}</div>`),
 		},

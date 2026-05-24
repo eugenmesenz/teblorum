@@ -1,0 +1,16 @@
+{{ define "content" }}
+<div class="auth-page">
+    <h1>Сброс пароля</h1>
+    <p>Введите ваш email, и мы отправим ссылку для сброса пароля.</p>
+    <form action="/auth/forgot" method="POST" class="auth-form">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required placeholder="your@email.com">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Отправить</button>
+    </form>
+    <div class="auth-alt">
+        <a href="/auth/login">Вернуться ко входу</a>
+    </div>
+</div>
+{{ end }}

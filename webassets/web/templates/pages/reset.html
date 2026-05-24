@@ -1,0 +1,13 @@
+{{ define "content" }}
+<div class="auth-page">
+    <h1>Новый пароль</h1>
+    <form action="/auth/reset" method="POST" class="auth-form">
+        <input type="hidden" name="token" value="{{ .CsrfToken }}">
+        <div class="form-group">
+            <label for="password">Новый пароль (минимум 6 символов)</label>
+            <input type="password" id="password" name="password" required placeholder="••••••••" minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+    </form>
+</div>
+{{ end }}

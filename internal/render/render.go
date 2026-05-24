@@ -38,7 +38,13 @@ func NewTemplateRenderer(tfs TemplateFS) (*TemplateRenderer, error) {
 }
 
 // pageTemplates — список известных страниц.
-var pageTemplates = []string{"feed", "article", "thread", "user"}
+var pageTemplates = []string{
+	"feed", "article", "thread", "user",
+	"login", "register", "forgot", "reset",
+	"messages", "conversation",
+	"settings", "new_post", "edit_post",
+	"root",
+}
 
 // partialTemplates — список известных partial-шаблонов (без расширения).
 var partialTemplates = []string{"comment", "comment_form", "pagination"}

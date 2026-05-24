@@ -1,0 +1,23 @@
+{{ define "content" }}
+<h1>Панель управления</h1>
+<div class="root-section">
+    <h2>Бекапы</h2>
+    <form action="/root/backup" method="POST" class="inline-form">
+        <button type="submit" class="btn btn-primary">Создать бекап</button>
+    </form>
+    <form action="/root/restore" method="POST" enctype="multipart/form-data" class="restore-form">
+        <div class="form-group">
+            <label for="backup">Восстановить из файла</label>
+            <input type="file" id="backup" name="backup" accept=".db">
+        </div>
+        <button type="submit" class="btn">Восстановить</button>
+    </form>
+    {{ if .Backups }}
+    <ul class="backup-list">
+        {{ range .Backups }}
+        <li>{{ . }}</li>
+        {{ end }}
+    </ul>
+    {{ end }}
+</div>
+{{ end }}

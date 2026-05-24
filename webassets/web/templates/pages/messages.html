@@ -1,0 +1,19 @@
+{{ define "content" }}
+<h1>Сообщения</h1>
+<div class="messages-list">
+    {{ range .Conversations }}
+    <a href="/messages/{{ .WithUser }}" class="conversation-item">
+        <div class="conversation-user">
+            <strong>{{ .WithUser }}</strong>
+            {{ if gt .UnreadCount 0 }}
+                <span class="unread-badge">{{ .UnreadCount }}</span>
+            {{ end }}
+        </div>
+        <div class="conversation-preview">{{ .LastMessage }}</div>
+        <div class="conversation-time">{{ .LastMessageAt }}</div>
+    </a>
+    {{ else }}
+    <p class="empty-state">У вас пока нет диалогов.</p>
+    {{ end }}
+</div>
+{{ end }}

@@ -1,0 +1,26 @@
+{{ define "content" }}
+<div class="auth-page">
+    <h1>Вход</h1>
+    <form action="/auth/login" method="POST" class="auth-form">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+            <label for="password">Пароль</label>
+            <input type="password" id="password" name="password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Войти</button>
+    </form>
+    <div class="auth-alt">
+        <a href="/auth/register">Нет аккаунта? Зарегистрироваться</a>
+        <a href="/auth/forgot">Забыли пароль?</a>
+    </div>
+    {{ if .GoogleClientID }}
+    <div class="auth-oauth">
+        <p>или</p>
+        <a href="/auth/google" class="btn btn-google">Войти через Google</a>
+    </div>
+    {{ end }}
+</div>
+{{ end }}

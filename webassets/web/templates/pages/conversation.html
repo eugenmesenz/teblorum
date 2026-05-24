@@ -1,0 +1,18 @@
+{{ define "content" }}
+<h1>Диалог с {{ .WithUser }}</h1>
+<div class="conversation-messages" id="conversation-messages">
+    {{ range .Messages }}
+    <div class="message {{ if .IsMine }}message-mine{{ else }}message-theirs{{ end }}" id="message-{{ .ID }}">
+        <div class="message-body">{{ .Body }}</div>
+        <div class="message-time">{{ .CreatedAt }}</div>
+    </div>
+    {{ else }}
+    <p class="empty-state">Напишите первое сообщение.</p>
+    {{ end }}
+</div>
+<form hx-post="/messages/{{ .WithUser }}" hx-target="#conversation-messages" hx-swap="beforeend" class="message-form">
+    <textarea name="body" rows="2" required placeholder="Напишите сообщение..."></textarea>
+    <button type="submit" class="btn btn-primary">Отправить</button>
+</form>
+{{ template "pagination.html" .Pagination }}
+{{ end }}

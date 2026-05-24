@@ -62,6 +62,7 @@ type ProfileData struct {
 	Bio       string
 	Role      string
 	CreatedAt string
+	IsBanned  bool
 }
 
 // PaginationData — данные пагинации.
@@ -69,4 +70,72 @@ type PaginationData struct {
 	Page       int
 	TotalPages int
 	Total      int
+}
+
+// AuthPageData — данные для страниц аутентификации.
+type AuthPageData struct {
+	PageData
+	RedirectTo string
+	Error      string
+}
+
+// MessagesPageData — данные для страницы сообщений.
+type MessagesPageData struct {
+	PageData
+	Conversations []*ConversationItem
+}
+
+// ConversationItem — элемент списка диалогов.
+type ConversationItem struct {
+	WithUser      string
+	WithUserID    int64
+	LastMessage   string
+	LastMessageAt string
+	UnreadCount   int
+}
+
+// ConversationPageData — данные для страницы диалога.
+type ConversationPageData struct {
+	PageData
+	WithUser    string
+	Messages    []*MessageItem
+	Pagination  PaginationData
+}
+
+// MessageItem — сообщение в диалоге.
+type MessageItem struct {
+	ID        int64
+	Body      string
+	CreatedAt string
+	IsMine    bool
+}
+
+// SettingsPageData — данные для страницы настроек.
+type SettingsPageData struct {
+	PageData
+	Bio      string
+	Username string
+	Error    string
+	Success  string
+}
+
+// RootPageData — данные для панели root.
+type RootPageData struct {
+	PageData
+	Backups []string
+}
+
+// NewPostPageData — данные для формы создания публикации.
+type NewPostPageData struct {
+	PageData
+	PostType string // "article" или "thread"
+}
+
+// EditPostPageData — данные для формы редактирования.
+type EditPostPageData struct {
+	PageData
+	PostID          int64
+	Title           string
+	Body            string
+	CommentsEnabled bool
 }
