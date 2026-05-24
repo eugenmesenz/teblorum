@@ -15,9 +15,14 @@ import (
 // handleLoginForm показывает форму входа.
 func handleLoginForm(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
-			PageData: render.PageData{Title: "Вход", Theme: "light"},
-		}, render.DetectHTMX(r))
+		data := struct {
+			render.PageData
+			GoogleClientID string
+		}{
+			PageData:       render.PageData{Title: "Вход", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
+			GoogleClientID: deps.GoogleClientID,
+		}
+		deps.Renderer.PageHTTP(w, "login", data, render.DetectHTMX(r))
 	}
 }
 
@@ -63,8 +68,8 @@ func handleLogin(deps *Dependencies) http.HandlerFunc {
 // handleRegisterForm показывает форму регистрации.
 func handleRegisterForm(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
-			PageData: render.PageData{Title: "Регистрация", Theme: "light"},
+		deps.Renderer.PageHTTP(w, "register", render.AuthPageData{
+			PageData: render.PageData{Title: "Регистрация", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
 		}, render.DetectHTMX(r))
 	}
 }
@@ -212,8 +217,8 @@ func handleLogout(deps *Dependencies) http.HandlerFunc {
 // handleForgotForm показывает форму сброса пароля.
 func handleForgotForm(deps *Dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
-			PageData: render.PageData{Title: "Сброс пароля", Theme: "light"},
+		deps.Renderer.PageHTTP(w, "forgot", render.AuthPageData{
+			PageData: render.PageData{Title: "Сброс пароля", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
 		}, render.DetectHTMX(r))
 	}
 }
@@ -255,8 +260,8 @@ func handleResetForm(deps *Dependencies) http.HandlerFunc {
 			return
 		}
 
-		deps.Renderer.PageHTTP(w, "feed", render.FeedPageData{
-			PageData: render.PageData{Title: "Новый пароль", Theme: "light"},
+		deps.Renderer.PageHTTP(w, "reset", render.AuthPageData{
+			PageData: render.PageData{Title: "Новый пароль", Theme: "light", CurrentUser: middleware.UserFromContext(r.Context())},
 		}, render.DetectHTMX(r))
 	}
 }
