@@ -51,8 +51,8 @@ func SetupRoutes(deps *Dependencies, staticFS fs.FS) http.Handler {
 
 	mux.HandleFunc("GET /articles", handleArticlesList(deps))
 	mux.HandleFunc("GET /threads", handleThreadsList(deps))
-	mux.HandleFunc("GET /articles/{id}-{slug}", handleArticlePage(deps))
-	mux.HandleFunc("GET /threads/{id}-{slug}", handleThreadPage(deps))
+	mux.HandleFunc("GET /articles/{id}", handleArticlePage(deps))
+	mux.HandleFunc("GET /threads/{id}", handleThreadPage(deps))
 
 	// Пользователи
 	mux.HandleFunc("GET /users/{username}", handleUserPage(deps))
@@ -79,6 +79,8 @@ func SetupRoutes(deps *Dependencies, staticFS fs.FS) http.Handler {
 	authMux.HandleFunc("POST /threads", handleCreateThread(deps))
 	authMux.HandleFunc("GET /articles/{id}/edit", handleEditArticleForm(deps))
 	authMux.HandleFunc("POST /articles/{id}", handleUpdateArticle(deps))
+	authMux.HandleFunc("GET /threads/{id}/edit", handleEditArticleForm(deps))
+	authMux.HandleFunc("POST /threads/{id}", handleUpdateArticle(deps))
 
 	// Комментарии
 	authMux.HandleFunc("POST /posts/{id}/comments", handleCreateComment(deps))
@@ -101,6 +103,8 @@ func SetupRoutes(deps *Dependencies, staticFS fs.FS) http.Handler {
 	mux.Handle("POST /threads", middleware.RequireAuth(authMux))
 	mux.Handle("GET /articles/{id}/edit", middleware.RequireAuth(authMux))
 	mux.Handle("POST /articles/{id}", middleware.RequireAuth(authMux))
+	mux.Handle("GET /threads/{id}/edit", middleware.RequireAuth(authMux))
+	mux.Handle("POST /threads/{id}", middleware.RequireAuth(authMux))
 	mux.Handle("POST /posts/{id}/comments", middleware.RequireAuth(authMux))
 	mux.Handle("GET /comments/reply-form", middleware.RequireAuth(authMux))
 	mux.Handle("GET /comments/{id}/children", middleware.RequireAuth(authMux))

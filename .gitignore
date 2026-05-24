@@ -1,0 +1,21 @@
+# Бинарник
+teblorum
+teblorum.exe
+
+# База данных
+*.db
+*.db-shm
+*.db-wal
+
+# Директория бекапов
+backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
