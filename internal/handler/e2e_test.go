@@ -1496,3 +1496,99 @@ func TestE2E_GroupH(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Группа I: Markdown-рендеринг
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupI(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	suite.postForm(t, "/auth/register", map[string]string{
+		"email":    "author@example.com",
+		"username": "author",
+		"password": "password123",
+	})
+
+	// I1: Базовая статья с Markdown (заголовок, жирный текст)
+	t.Run("I1_MarkdownBasics", func(t *testing.T) {
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title": "Markdown Test",
+			"body":  "# Heading 1\n\nThis is **bold** and *italic* text.",
+		})
+		loc := cr.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		resp := suite.get(t, "/articles/"+postID)
+		body := readBody(t, resp)
+
+		if !strings.Contains(body, "Heading 1") {
+			t.Errorf("body should contain rendered heading, got: %s", truncate(body, 300))
+		}
+		// html/template экранирует HTML-теги, поэтому ищем экранированные версии
+		if !strings.Contains(body, "&lt;strong&gt;") && !strings.Contains(body, "bold") {
+			t.Errorf("body should contain bold formatting, got: %s", truncate(body, 300))
+		}
+	})
+
+	// I2: XSS-безопасность
+	t.Run("I2_XSS_Security", func(t *testing.T) {
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title": "XSS Test",
+			"body":  "Normal text <script>alert('xss')</script> more text.",
+		})
+		loc := cr.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		resp := suite.get(t, "/articles/"+postID)
+		body := readBody(t, resp)
+
+		if strings.Contains(body, "<script>") {
+			t.Errorf("body should not contain raw <script> tag, XSS vulnerability")
+		}
+		if !strings.Contains(body, "Normal text") {
+			t.Errorf("normal text should be present, got: %s", truncate(body, 300))
+		}
+	})
+
+	// I3: Ссылки
+	t.Run("I3_Links", func(t *testing.T) {
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title": "Links Test",
+			"body":  "Visit [GitHub](https://github.com) for more.",
+		})
+		loc := cr.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		resp := suite.get(t, "/articles/"+postID)
+		body := readBody(t, resp)
+
+		if !strings.Contains(body, "GitHub") {
+			t.Errorf("body should contain link text, got: %s", truncate(body, 300))
+		}
+		if !strings.Contains(body, "github.com") {
+			t.Errorf("body should contain link URL, got: %s", truncate(body, 300))
+		}
+	})
+
+	// I4: Код
+	t.Run("I4_Code", func(t *testing.T) {
+		cr := suite.postForm(t, "/articles", map[string]string{
+			"title": "Code Test",
+			"body":  "Use `fmt.Println()` to print.",
+		})
+		loc := cr.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		resp := suite.get(t, "/articles/"+postID)
+		body := readBody(t, resp)
+
+		if !strings.Contains(body, "<code>") && !strings.Contains(body, "fmt.Println") {
+			t.Errorf("body should contain code formatting, got: %s", truncate(body, 300))
+		}
+	})
+}
