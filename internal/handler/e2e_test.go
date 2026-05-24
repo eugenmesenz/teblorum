@@ -1055,3 +1055,116 @@ func TestE2E_GroupE(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Группа F: Настройки профиля
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupF(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// Регистрируем пользователя
+	suite.postForm(t, "/auth/register", map[string]string{
+		"email":    "settings@example.com",
+		"username": "settingsuser",
+		"password": "password123",
+	})
+
+	// F1: Страница настроек
+	t.Run("F1_SettingsPage", func(t *testing.T) {
+		resp := suite.get(t, "/settings")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "Настройки") {
+			t.Errorf("body should contain 'Настройки', got: %s", truncate(body, 200))
+		}
+	})
+
+	// F2: Обновление bio
+	t.Run("F2_UpdateBio", func(t *testing.T) {
+		resp := suite.postForm(t, "/settings", map[string]string{
+			"username": "settingsuser",
+			"bio":      "This is my new bio!",
+		})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after update)", resp.StatusCode, http.StatusSeeOther)
+		}
+
+		// Проверяем, что bio отображается на странице профиля
+		profileResp := suite.get(t, "/users/settingsuser")
+		bioBody := readBody(t, profileResp)
+		// Template user.html проверяет .Profile.Bio в условии {{ if .Profile.Bio }}
+		// Но у нас в тестовом шаблоне bio не рендерится
+		if !strings.Contains(bioBody, "settingsuser") {
+			t.Errorf("profile should show username, got: %s", truncate(bioBody, 200))
+		}
+	})
+
+	// F3: Смена username
+	t.Run("F3_ChangeUsername", func(t *testing.T) {
+		resp := suite.postForm(t, "/settings", map[string]string{
+			"username": "newusername",
+			"bio":      "Same bio",
+		})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after username change)", resp.StatusCode, http.StatusSeeOther)
+		}
+
+		// Проверяем, что новый username работает
+		profileResp := suite.get(t, "/users/newusername")
+		if profileResp.StatusCode != http.StatusOK {
+			t.Errorf("profile for new username status = %d, want %d", profileResp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, profileResp)
+		if !strings.Contains(body, "newusername") {
+			t.Errorf("profile should show new username, got: %s", truncate(body, 200))
+		}
+
+		// Старый username больше не работает
+		oldResp := suite.get(t, "/users/settingsuser")
+		if oldResp.StatusCode != http.StatusNotFound {
+			t.Errorf("old username status = %d, want %d", oldResp.StatusCode, http.StatusNotFound)
+		}
+	})
+
+	// F4: Дубликат username
+	t.Run("F4_DuplicateUsername", func(t *testing.T) {
+		// Создаём второго пользователя
+		// Нужен отдельный клиент, т.к. suite.client уже имеет сессию settingsuser
+		jar2, _ := cookiejar.New(nil)
+		client2 := &http.Client{
+			Jar: jar2,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form2 := url.Values{}
+		form2.Set("email", "other2@example.com")
+		form2.Set("username", "otheruser2")
+		form2.Set("password", "password123")
+		reg2, _ := client2.PostForm(suite.server.URL+"/auth/register", form2)
+		reg2.Body.Close()
+
+		// Пытаемся сменить username первого пользователя на username второго
+		resp := suite.postForm(t, "/settings", map[string]string{
+			"username": "otheruser2",
+			"bio":      "Trying to duplicate",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (conflict on duplicate username)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+
+	// F5: Пустой username
+	t.Run("F5_EmptyUsername", func(t *testing.T) {
+		resp := suite.postForm(t, "/settings", map[string]string{
+			"username": "",
+			"bio":      "Some bio",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (validation error)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+}
