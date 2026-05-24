@@ -10,9 +10,9 @@ import (
 
 // CleanupService выполняет фоновую очистку устаревших данных.
 type CleanupService struct {
-	db      *sql.DB
-	ticker  *time.Ticker
-	stopCh  chan struct{}
+	db     *sql.DB
+	ticker *time.Ticker
+	stopCh chan struct{}
 }
 
 // NewCleanupService создаёт сервис фоновой очистки.

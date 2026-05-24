@@ -13,13 +13,13 @@ import (
 
 // RootService — сервис для root-операций (бекап, восстановление).
 type RootService struct {
-	db       *sql.DB
+	db        *sql.DB
 	backupDir string
 }
 
 func NewRootService(db *sql.DB, backupDir string) *RootService {
 	return &RootService{
-		db:       db,
+		db:        db,
 		backupDir: backupDir,
 	}
 }

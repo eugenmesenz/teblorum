@@ -22,9 +22,9 @@ func RenderToHTML(md string) (string, error) {
 	// Настройка goldmark
 	gm := goldmark.New(
 		goldmark.WithExtensions(
-			extension.GFM,        // Tables, strikethrough, task lists, etc.
+			extension.GFM,         // Tables, strikethrough, task lists, etc.
 			extension.Typographer, // Smartypants: кавычки, тире, многоточия
-			extension.Linkify,    // Автоссылки
+			extension.Linkify,     // Автоссылки
 		),
 		goldmark.WithParserOptions(
 			parser.WithAutoHeadingID(), // Авто-ID для заголовков
