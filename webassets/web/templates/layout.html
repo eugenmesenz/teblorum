@@ -44,6 +44,7 @@
         <div class="nav-inner">
             <a href="/" class="nav-logo">teblorum</a>
             <div class="nav-links">
+                <!-- current title: {{ .Title }} -->
                 <a href="/articles" class="{{ if eq .Title "Статьи" }}active{{ end }}">Статьи</a>
                 <a href="/threads" class="{{ if eq .Title "Треды" }}active{{ end }}">Треды</a>
             </div>
