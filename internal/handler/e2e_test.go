@@ -1810,7 +1810,10 @@ func TestE2E_GroupJ(t *testing.T) {
 		form := url.Values{}
 		form.Set("email", "tobebanned@example.com")
 		form.Set("password", "password123")
-		loginResp, _ := cleanClient.PostForm(suite.server.URL+"/auth/login", form)
+		loginResp, err := cleanClient.PostForm(suite.server.URL+"/auth/login", form)
+		if err != nil {
+			t.Fatalf("POST /auth/login (banned): %v", err)
+		}
 		defer loginResp.Body.Close()
 
 		if loginResp.StatusCode != http.StatusUnauthorized {
