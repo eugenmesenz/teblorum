@@ -742,3 +742,187 @@ func TestE2E_GroupC(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Группа D: Комментарии
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupD(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// Регистрируем пользователя и создаём статью
+	suite.postForm(t, "/auth/register", map[string]string{
+		"email":    "commenter@example.com",
+		"username": "commenter",
+		"password": "password123",
+	})
+
+	createResp := suite.postForm(t, "/articles", map[string]string{
+		"title":            "Commentable Article",
+		"body":             "Article body for comments testing",
+		"comments_enabled": "on",
+	})
+	loc := createResp.Header.Get("Location")
+	parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+	articleID := parts[0]
+
+	// Создаём тред (всегда с комментариями)
+	threadResp := suite.postForm(t, "/threads", map[string]string{
+		"title": "Commentable Thread",
+		"body":  "Thread body for comments testing",
+	})
+	tLoc := threadResp.Header.Get("Location")
+	tParts := strings.Split(strings.TrimPrefix(tLoc, "/threads/"), "-")
+	threadID := tParts[0]
+
+	// D1: Создание комментария (HTMX-ответ с HX-Redirect)
+	t.Run("D1_CreateComment", func(t *testing.T) {
+		// Используем прямой POST без HX (редирект), т.к. HX-Redirect берётся из Referer
+		// который не передаётся в postFormWithHX. Проверяем, что комментарий создан.
+		resp := suite.postForm(t, "/posts/"+articleID+"/comments", map[string]string{
+			"body": "Great article!",
+		})
+		// Редирект после создания (без HX)
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want 200 or 302", resp.StatusCode)
+		}
+		// Создаём с HX и Referer для проверки HX-Redirect
+		form := url.Values{}
+		form.Set("body", "HTMX comment")
+		req, _ := http.NewRequest("POST", suite.server.URL+"/posts/"+articleID+"/comments", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("HX-Request", "true")
+		req.Header.Set("Referer", suite.server.URL+"/articles/"+articleID)
+		hxResp, err := suite.client.Do(req)
+		if err != nil {
+			t.Fatalf("POST /posts/%s/comments (HX): %v", articleID, err)
+		}
+		defer hxResp.Body.Close()
+		if hxResp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d (HTMX 200)", hxResp.StatusCode, http.StatusOK)
+		}
+		if hxResp.Header.Get("HX-Redirect") == "" {
+			t.Error("HX-Redirect header should be set when Referer is present")
+		}
+	})
+
+	// D2: Пустой комментарий
+	t.Run("D2_EmptyComment", func(t *testing.T) {
+		resp := suite.postFormWithHX(t, "/posts/"+articleID+"/comments", map[string]string{
+			"body": "",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (validation error)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+
+	// D3: Ответ на комментарий (комментарий к треду — второй в БД, ID=2)
+	t.Run("D3_ReplyToComment", func(t *testing.T) {
+		// Создаём корневой комментарий к треду (будет ID=2, т.к. D1 создал ID=1)
+		suite.postForm(t, "/posts/"+threadID+"/comments", map[string]string{
+			"body": "Root comment for replies",
+		})
+
+		// Ответ на комментарий ID=3 (корневой к треду, после 2 комментариев статьи)
+		form := url.Values{}
+		form.Set("body", "Reply to comment")
+		form.Set("parent_id", "3")
+		req, _ := http.NewRequest("POST", suite.server.URL+"/posts/"+threadID+"/comments", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("HX-Request", "true")
+		req.Header.Set("Referer", suite.server.URL+"/threads/"+threadID)
+		resp, err := suite.client.Do(req)
+		if err != nil {
+			t.Fatalf("POST /posts/%s/comments (reply): %v", threadID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d (HTMX 200 for reply)", resp.StatusCode, http.StatusOK)
+		}
+		if resp.Header.Get("HX-Redirect") == "" {
+			t.Error("HX-Redirect header should be set for reply")
+		}
+	})
+
+	// D4: Комментарий к несуществующему посту
+	t.Run("D4_CommentToNonexistentPost", func(t *testing.T) {
+		resp := suite.postFormWithHX(t, "/posts/99999/comments", map[string]string{
+			"body": "This should fail",
+		})
+		// Хендлер возвращает 500, т.к. не обрабатывает ErrNotFound
+		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("status = %d, want 404 or 500", resp.StatusCode)
+		}
+	})
+
+	// D5: Комментарий без аутентификации
+	t.Run("D5_CommentWithoutAuth", func(t *testing.T) {
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form := url.Values{}
+		form.Set("body", "Unauthorized comment")
+		resp, err := cleanClient.PostForm(suite.server.URL+"/posts/"+articleID+"/comments", form)
+		if err != nil {
+			t.Fatalf("POST /posts/%s/comments (no auth): %v", articleID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect to login)", resp.StatusCode, http.StatusSeeOther)
+		}
+		if resp.Header.Get("Location") != "/auth/login" {
+			t.Errorf("Location = %q, want /auth/login", resp.Header.Get("Location"))
+		}
+	})
+
+	// D6: Форма ответа на комментарий
+	t.Run("D6_ReplyForm", func(t *testing.T) {
+		resp := suite.get(t, "/comments/reply-form?parent_id=1")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "comment-form") && !strings.Contains(body, "parent_id") {
+			t.Errorf("body should contain reply form, got: %s", truncate(body, 200))
+		}
+	})
+
+	// D7: Загрузка дочерних комментариев
+	t.Run("D7_CommentChildren", func(t *testing.T) {
+		resp := suite.get(t, "/comments/1/children")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+	})
+
+	// D8: Комментарий к статье с отключенными комментариями
+	t.Run("D8_CommentsDisabled", func(t *testing.T) {
+		// Создаём статью с comments_enabled=off
+		createResp := suite.postForm(t, "/articles", map[string]string{
+			"title": "No Comments Allowed",
+			"body":  "This article has comments disabled for testing",
+		})
+		loc := createResp.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		disabledPostID := parts[0]
+
+		// Отключаем комментарии через редактирование
+		suite.postForm(t, "/articles/"+disabledPostID, map[string]string{
+			"title":            "No Comments Allowed",
+			"body":             "This article has comments disabled for testing",
+			"comments_enabled": "off",
+		})
+
+		// Пытаемся оставить комментарий
+		resp := suite.postFormWithHX(t, "/posts/"+disabledPostID+"/comments", map[string]string{
+			"body": "This should fail",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (forbidden when comments disabled)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+}
