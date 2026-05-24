@@ -44,7 +44,6 @@
         <div class="nav-inner">
             <a href="/" class="nav-logo">teblorum</a>
             <div class="nav-links">
-                <!-- current title: {{ .Title }} -->
                 <a href="/articles" class="{{ if eq .Title "Статьи" }}active{{ end }}">Статьи</a>
                 <a href="/threads" class="{{ if eq .Title "Треды" }}active{{ end }}">Треды</a>
             </div>
@@ -55,13 +54,13 @@
             </div>
             <div class="nav-auth">
                 {{ if .CurrentUser }}
-                    <a href="/messages" class="nav-messages">
+                    <a href="/messages" class="nav-messages {{ if eq .Title "Сообщения" }}active{{ end }}">
                         Сообщения
                         {{ if gt .UnreadCount 0 }}
                             <span class="unread-badge">{{ .UnreadCount }}</span>
                         {{ end }}
                     </a>
-                    <a href="/settings">Настройки</a>
+                    <a href="/settings" class="{{ if eq .Title "Настройки" }}active{{ end }}">Настройки</a>
                     <a href="/users/{{ .CurrentUser.Username }}">{{ .CurrentUser.Username }}</a>
                     <form action="/auth/logout" method="POST" class="inline-form">
                         <button type="submit" class="btn-link">Выйти</button>
