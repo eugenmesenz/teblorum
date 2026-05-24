@@ -1,0 +1,9 @@
+{
+  "db_path": "data/teblorum.db",
+  "addr": ":8080",
+  "backup_dir": "./backups",
+  "bootstrap_email": "admin@example.com",
+  "bootstrap_password": "changeme",
+  "session_ttl_days": 30,
+  "rate_limit_per_minute": 60
+}
