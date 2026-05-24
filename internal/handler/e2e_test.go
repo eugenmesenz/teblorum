@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/teblorum/teblorum/internal/model"
 	"github.com/teblorum/teblorum/internal/repo"
 )
 
@@ -1165,6 +1167,198 @@ func TestE2E_GroupF(t *testing.T) {
 		})
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("status = %d, want %d (validation error)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Группа G: Модерация (Moderator+)
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupG(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// --- Настройка тестовых пользователей (с фиксированными ID) ---
+	// ID=1: regular — обычный пользователь (регистрация через POST)
+	// ID=2: victim — жертва для бана/разбана
+	// ID=3: another — второй обычный пользователь
+	// ID=4: moderator — модератор
+	// ID=5: rootuser — root
+
+	suite.postForm(t, "/auth/register", map[string]string{
+		"email":    "regular@example.com",
+		"username": "regular",
+		"password": "password123",
+	})
+	victim := repo.SeedUser(t, suite.db, map[string]interface{}{
+		"username": "victim",
+		"email":    "victim@example.com",
+	})
+	another := repo.SeedUser(t, suite.db, map[string]interface{}{
+		"username": "anotheruser",
+		"email":    "another@example.com",
+	})
+	modUser := repo.SeedUser(t, suite.db, map[string]interface{}{
+		"username": "moderator",
+		"email":    "mod@example.com",
+		"role":     model.RoleModerator,
+	})
+	rootUser := repo.SeedUser(t, suite.db, map[string]interface{}{
+		"username": "rootuser",
+		"email":    "root@example.com",
+		"role":     model.RoleRoot,
+	})
+
+	// Сессия модератора
+	modSession := repo.SeedSession(t, suite.db, modUser.ID)
+	jarMod, _ := cookiejar.New(nil)
+	modClient := &http.Client{
+		Jar: jarMod,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	modCookie := &http.Cookie{Name: "session_id", Value: modSession.ID}
+	cookieURL, _ := url.Parse(suite.server.URL)
+	jarMod.SetCookies(cookieURL, []*http.Cookie{modCookie})
+
+	// Создаём пост от regular (ID=1)
+	createResp := suite.postForm(t, "/articles", map[string]string{
+		"title": "Regular Article",
+		"body":  "Article body for moderation testing",
+	})
+	loc := createResp.Header.Get("Location")
+	parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+	postID := parts[0]
+
+	// Комментарий от regular к его посту
+	suite.postForm(t, "/posts/"+postID+"/comments", map[string]string{
+		"body": "Regular comment for moderation",
+	})
+	// comment ID = 1
+
+	// G1: Удаление поста модератором (404 не гарантируется т.к. GetByID не фильтрует deleted_at)
+	t.Run("G1_ModDeletePost", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/posts/"+postID+"/delete", nil)
+		resp, err := modClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/posts/%s/delete: %v", postID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after delete)", resp.StatusCode, http.StatusSeeOther)
+		}
+	})
+
+	// G2: Удаление комментария модератором
+	t.Run("G2_ModDeleteComment", func(t *testing.T) {
+		postIDInt, _ := strconv.ParseInt(postID, 10, 64)
+		// Создаём комментарий через репозиторий напрямую к тому же посту
+		comment := repo.SeedComment(t, suite.db, map[string]interface{}{
+			"post_id":   postIDInt,
+			"author_id": int64(1), // regular user
+			"body":      "Comment for mod delete test",
+		})
+
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/comments/"+fmt.Sprintf("%d", comment.ID)+"/delete", nil)
+		resp, err := modClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/comments/%d/delete: %v", comment.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+
+		// Проверяем, что комментарий мягко удалён
+		var deletedAt interface{}
+		err = suite.db.QueryRow("SELECT deleted_at FROM comments WHERE id = ?", comment.ID).Scan(&deletedAt)
+		if err != nil {
+			t.Fatalf("query comment: %v", err)
+		}
+		if deletedAt == nil {
+			t.Errorf("comment %d should be soft-deleted (deleted_at IS NULL)", comment.ID)
+		}
+	})
+
+	// G3: Бан пользователя модератором (бан victim, ID=2)
+	t.Run("G3_ModBanUser", func(t *testing.T) {
+		form := url.Values{}
+		form.Set("duration", "1h")
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/users/"+fmt.Sprintf("%d", victim.ID)+"/ban", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := modClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/users/%d/ban: %v", victim.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusSeeOther)
+		}
+	})
+
+	// G4: Разбан пользователя модератором
+	t.Run("G4_ModUnbanUser", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/users/"+fmt.Sprintf("%d", victim.ID)+"/unban", nil)
+		resp, err := modClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/users/%d/unban: %v", victim.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusSeeOther)
+		}
+	})
+
+	// G5: Обычный пользователь пытается банить (403)
+	t.Run("G5_UserBanForbidden", func(t *testing.T) {
+		form := url.Values{}
+		form.Set("duration", "1h")
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/users/"+fmt.Sprintf("%d", another.ID)+"/ban", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := suite.client.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/users/%d/ban (regular): %v", another.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusForbidden)
+		}
+	})
+
+	// G6: Модератор пытается банить root (403)
+	t.Run("G6_ModBanRootForbidden", func(t *testing.T) {
+		form := url.Values{}
+		form.Set("duration", "1h")
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/users/"+fmt.Sprintf("%d", rootUser.ID)+"/ban", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := modClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/users/%d/ban (mod→root): %v", rootUser.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusForbidden)
+		}
+	})
+
+	// G7: Обычный пользователь пытается удалить пост (403)
+	t.Run("G7_UserDeletePostForbidden", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/mod/posts/2/delete", nil)
+		resp, err := suite.client.Do(req)
+		if err != nil {
+			t.Fatalf("POST /mod/posts/2/delete (regular): %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusForbidden)
 		}
 	})
 }
