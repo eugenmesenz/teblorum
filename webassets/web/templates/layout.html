@@ -1,11 +1,42 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ .Theme }}">
+<html lang="ru" data-theme="{{ .Theme }}" style="font-size: {{ .FontSize }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .Title }} — teblorum</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="/static/htmx.min.js" defer></script>
+    <script>
+        // Переключение темы (светлая/тёмная)
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('teblorum-theme', next);
+        }
+
+        // Изменение размера шрифта
+        function changeSize(delta) {
+            const html = document.documentElement;
+            const current = parseInt(getComputedStyle(html).fontSize);
+            const next = Math.min(Math.max(current + delta, 14), 24);
+            html.style.fontSize = next + 'px';
+            localStorage.setItem('teblorum-font-size', next + 'px');
+        }
+
+        // Восстановление сохранённых настроек
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('teblorum-theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+            const savedSize = localStorage.getItem('teblorum-font-size');
+            if (savedSize) {
+                document.documentElement.style.fontSize = savedSize;
+            }
+        });
+    </script>
     {{ block "head" . }}{{ end }}
 </head>
 <body>
@@ -16,6 +47,11 @@
                 <a href="/articles">Статьи</a>
                 <a href="/threads">Треды</a>
             </div>
+            <div class="nav-controls">
+                <button class="btn-icon" onclick="changeSize(-1)" title="Уменьшить шрифт" aria-label="Уменьшить шрифт">A−</button>
+                <button class="btn-icon" onclick="changeSize(1)" title="Увеличить шрифт" aria-label="Увеличить шрифт">A+</button>
+                <button class="btn-icon" onclick="toggleTheme()" title="Переключить тему" aria-label="Переключить тему">◐</button>
+            </div>
             <div class="nav-auth">
                 {{ if .CurrentUser }}
                     <a href="/messages" class="nav-messages">
@@ -24,6 +60,7 @@
                             <span class="unread-badge">{{ .UnreadCount }}</span>
                         {{ end }}
                     </a>
+                    <a href="/settings">Настройки</a>
                     <a href="/users/{{ .CurrentUser.Username }}">{{ .CurrentUser.Username }}</a>
                     <form action="/auth/logout" method="POST" class="inline-form">
                         <button type="submit" class="btn-link">Выйти</button>

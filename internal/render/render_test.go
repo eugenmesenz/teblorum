@@ -16,10 +16,16 @@ func testFS(t *testing.T) fstest.MapFS {
 	return fstest.MapFS{
 		"web/templates/layout.html": &fstest.MapFile{
 			Data: []byte(`<!DOCTYPE html>
-<html>
+<html lang="ru" data-theme="{{ .Theme }}" style="font-size: {{ .FontSize }}">
 <head><title>{{ .Title }} — teblorum</title></head>
 <body>
-<nav><a href="/">teblorum</a></nav>
+<nav><a href="/">teblorum</a>
+<div class="nav-controls">
+<button onclick="changeSize(-1)">A−</button>
+<button onclick="changeSize(1)">A+</button>
+<button onclick="toggleTheme()">◐</button>
+</div>
+</nav>
 <main>{{ block "content" . }}{{ end }}</main>
 </body>
 </html>`),

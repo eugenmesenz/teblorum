@@ -95,6 +95,36 @@ img { max-width: 100%; height: auto; }
 
 .nav-auth a:hover { color: var(--fg); text-decoration: none; }
 
+/* --- Nav controls (theme + font size) --------------------- */
+.nav-controls {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  background: var(--bg-alt);
+  color: var(--fg);
+}
+
 .nav-messages { position: relative; }
 
 .unread-badge {
