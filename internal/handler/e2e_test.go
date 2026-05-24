@@ -926,3 +926,132 @@ func TestE2E_GroupD(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Группа E: Личные сообщения
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupE(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// Регистрируем User A (основной, сессия в suite.client.Jar)
+	suite.postForm(t, "/auth/register", map[string]string{
+		"email":    "usera@example.com",
+		"username": "usera",
+		"password": "password123",
+	})
+
+	// Регистрируем User B через отдельный клиент
+	jarB, _ := cookiejar.New(nil)
+	clientB := &http.Client{
+		Jar: jarB,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	formB := url.Values{}
+	formB.Set("email", "userb@example.com")
+	formB.Set("username", "userb")
+	formB.Set("password", "password123")
+	regB, _ := clientB.PostForm(suite.server.URL+"/auth/register", formB)
+	regB.Body.Close()
+
+	// E1: Список диалогов (пустой)
+	t.Run("E1_MessagesList", func(t *testing.T) {
+		resp := suite.get(t, "/messages")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "Сообщения") {
+			t.Errorf("body should contain 'Сообщения', got: %s", truncate(body, 200))
+		}
+	})
+
+	// E2: Открыть диалог с существующим пользователем (пустой)
+	t.Run("E2_ConversationWithUser", func(t *testing.T) {
+		resp := suite.get(t, "/messages/userb")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "userb") && !strings.Contains(body, "Диалог с") {
+			t.Errorf("body should contain dialog info, got: %s", truncate(body, 200))
+		}
+	})
+
+	// E3: Отправить сообщение
+	t.Run("E3_SendMessage", func(t *testing.T) {
+		resp := suite.postForm(t, "/messages/userb", map[string]string{
+			"body": "Hello from User A!",
+		})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after send)", resp.StatusCode, http.StatusSeeOther)
+		}
+		loc := resp.Header.Get("Location")
+		if !strings.Contains(loc, "/messages/userb") {
+			t.Errorf("Location = %q, want /messages/userb", loc)
+		}
+	})
+
+	// E4: Отправка самому себе
+	t.Run("E4_SendToSelf", func(t *testing.T) {
+		resp := suite.postForm(t, "/messages/usera", map[string]string{
+			"body": "Message to myself",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (cannot send to self)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+
+	// E5: Несуществующий получатель
+	t.Run("E5_SendToNonexistent", func(t *testing.T) {
+		resp := suite.postForm(t, "/messages/nobody", map[string]string{
+			"body": "Hello nobody",
+		})
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusNotFound)
+		}
+	})
+
+	// E6: Пустое сообщение
+	t.Run("E6_EmptyMessage", func(t *testing.T) {
+		resp := suite.postForm(t, "/messages/userb", map[string]string{
+			"body": "",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (validation error)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+
+	// E7: Диалог с несуществующим пользователем
+	t.Run("E7_ConversationWithNonexistent", func(t *testing.T) {
+		resp := suite.get(t, "/messages/nobody")
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusNotFound)
+		}
+	})
+
+	// E8: Сообщение без аутентификации
+	t.Run("E8_MessageWithoutAuth", func(t *testing.T) {
+		cleanClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form := url.Values{}
+		form.Set("body", "Anonymous message")
+		resp, err := cleanClient.PostForm(suite.server.URL+"/messages/userb", form)
+		if err != nil {
+			t.Fatalf("POST /messages/userb (no auth): %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect to login)", resp.StatusCode, http.StatusSeeOther)
+		}
+		if resp.Header.Get("Location") != "/auth/login" {
+			t.Errorf("Location = %q, want /auth/login", resp.Header.Get("Location"))
+		}
+	})
+}
