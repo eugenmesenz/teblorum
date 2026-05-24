@@ -1,0 +1,12 @@
+<h1 id="heading">Заголовок</h1>
+<p>Это <strong>жирный</strong> и <em>курсив</em> текст.</p>
+<ul>
+<li>Элемент списка 1</li>
+<li>Элемент списка 2</li>
+</ul>
+<blockquote>
+<p>Цитата</p>
+</blockquote>
+<p><a href="https://example.com" rel="nofollow">Ссылка</a></p>
+<pre><code class="language-go">fmt.Println(&#34;Hello&#34;)
+</code></pre>
