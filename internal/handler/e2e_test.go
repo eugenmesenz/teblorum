@@ -1362,3 +1362,137 @@ func TestE2E_GroupG(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Группа H: Root-панель
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupH(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// Создаём root-пользователя через репозиторий
+	rootUser := repo.SeedUser(t, suite.db, map[string]interface{}{
+		"username": "rootadmin",
+		"email":    "root@example.com",
+		"role":     model.RoleRoot,
+	})
+	rootSession := repo.SeedSession(t, suite.db, rootUser.ID)
+
+	// Клиент root
+	jarRoot, _ := cookiejar.New(nil)
+	rootClient := &http.Client{
+		Jar: jarRoot,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	cookieURL, _ := url.Parse(suite.server.URL)
+	jarRoot.SetCookies(cookieURL, []*http.Cookie{{Name: "session_id", Value: rootSession.ID}})
+
+	// Создаём обычного пользователя для promote/demote
+	user := repo.SeedUser(t, suite.db, map[string]interface{}{
+		"username": "regularuser",
+		"email":    "regular@example.com",
+	})
+
+	// H1: Панель root
+	t.Run("H1_RootPanel", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", suite.server.URL+"/root", nil)
+		resp, err := rootClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET /root: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "Панель управления") {
+			t.Errorf("body should contain 'Панель управления', got: %s", truncate(body, 200))
+		}
+	})
+
+	// H2: Панель root недоступна обычному пользователю
+	t.Run("H2_RootPanelForbidden", func(t *testing.T) {
+		// Регистрируем обычного пользователя и получаем его сессию
+		suite.postForm(t, "/auth/register", map[string]string{
+			"email":    "user@example.com",
+			"username": "user",
+			"password": "password123",
+		})
+		resp := suite.get(t, "/root")
+		if resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want 403 or 302", resp.StatusCode)
+		}
+	})
+
+	// H3: Создание бекапа
+	t.Run("H3_CreateBackup", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/root/backup", nil)
+		resp, err := rootClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /root/backup: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusSeeOther)
+		}
+	})
+
+	// H4: Повышение до moderator
+	t.Run("H4_PromoteToModerator", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/root/users/"+fmt.Sprintf("%d", user.ID)+"/promote", nil)
+		resp, err := rootClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /root/users/%d/promote: %v", user.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after promote)", resp.StatusCode, http.StatusSeeOther)
+		}
+
+		// Проверяем, что роль изменилась
+		var role string
+		suite.db.QueryRow("SELECT role FROM users WHERE id = ?", user.ID).Scan(&role)
+		if role != "moderator" {
+			t.Errorf("user role = %q, want %q", role, "moderator")
+		}
+	})
+
+	// H5: Понижение до user
+	t.Run("H5_DemoteToUser", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/root/users/"+fmt.Sprintf("%d", user.ID)+"/demote", nil)
+		resp, err := rootClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /root/users/%d/demote: %v", user.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after demote)", resp.StatusCode, http.StatusSeeOther)
+		}
+
+		var role string
+		suite.db.QueryRow("SELECT role FROM users WHERE id = ?", user.ID).Scan(&role)
+		if role != "user" {
+			t.Errorf("user role = %q, want %q", role, "user")
+		}
+	})
+
+	// H6: Повышение обычным пользователем (403)
+	t.Run("H6_PromoteByUserForbidden", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", suite.server.URL+"/root/users/"+fmt.Sprintf("%d", user.ID)+"/promote", nil)
+		resp, err := suite.client.Do(req)
+		if err != nil {
+			t.Fatalf("POST /root/users/%d/promote (user): %v", user.ID, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want 403 or 302", resp.StatusCode)
+		}
+	})
+}
