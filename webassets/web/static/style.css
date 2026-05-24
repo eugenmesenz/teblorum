@@ -81,6 +81,8 @@ img { max-width: 100%; height: auto; }
 .nav-links a { color: var(--fg-muted); }
 .nav-links a:hover { color: var(--fg); text-decoration: none; }
 
+.nav-links a.active { color: var(--fg); font-weight: 600; }
+
 .nav-auth {
   margin-left: auto;
   display: flex;
@@ -92,6 +94,8 @@ img { max-width: 100%; height: auto; }
   color: var(--fg-muted);
   font-size: 0.9rem;
 }
+
+.nav-auth a.active { color: var(--fg); font-weight: 600; }
 
 .nav-auth a:hover { color: var(--fg); text-decoration: none; }
 
