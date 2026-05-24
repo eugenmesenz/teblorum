@@ -59,8 +59,8 @@ func (r *MessageRepo) GetByID(id int64) (*model.Message, error) {
 		FROM messages WHERE id = ?
 	`, id)
 	msg := &model.Message{}
-	var threadID, readAt sql.NullInt64
-	err := row.Scan(&msg.ID, &msg.FromUserID, &msg.ToUserID, &threadID, &msg.Body, &readAt, &msg.CreatedAt)
+	var threadID sql.NullInt64
+	err := row.Scan(&msg.ID, &msg.FromUserID, &msg.ToUserID, &threadID, &msg.Body, &msg.ReadAt, &msg.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("message: %w", model.ErrNotFound)
@@ -93,8 +93,8 @@ func (r *MessageRepo) GetConversations(userID int64) ([]*model.ConversationSumma
 	var summaries []*model.ConversationSummary
 	for rows.Next() {
 		msg := &model.Message{}
-		var threadID, readAt sql.NullInt64
-		err := rows.Scan(&msg.ID, &msg.FromUserID, &msg.ToUserID, &threadID, &msg.Body, &readAt, &msg.CreatedAt)
+		var threadID sql.NullInt64
+		err := rows.Scan(&msg.ID, &msg.FromUserID, &msg.ToUserID, &threadID, &msg.Body, &msg.ReadAt, &msg.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -146,12 +146,22 @@ func (r *MessageRepo) GetUnreadCount(userID int64) (int, error) {
 	return count, err
 }
 
+// GetUnreadCountForUser возвращает количество непрочитанных сообщений
+// от конкретного пользователя.
+func (r *MessageRepo) GetUnreadCountForUser(userID, fromUserID int64) (int, error) {
+	var count int
+	err := r.db.QueryRow(`
+		SELECT COUNT(*) FROM messages WHERE to_user_id = ? AND from_user_id = ? AND read_at IS NULL
+	`, userID, fromUserID).Scan(&count)
+	return count, err
+}
+
 func scanMessages(rows *sql.Rows) ([]*model.Message, error) {
 	var msgs []*model.Message
 	for rows.Next() {
 		msg := &model.Message{}
-		var threadID, readAt sql.NullInt64
-		err := rows.Scan(&msg.ID, &msg.FromUserID, &msg.ToUserID, &threadID, &msg.Body, &readAt, &msg.CreatedAt)
+		var threadID sql.NullInt64
+		err := rows.Scan(&msg.ID, &msg.FromUserID, &msg.ToUserID, &threadID, &msg.Body, &msg.ReadAt, &msg.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
