@@ -97,9 +97,9 @@ type ConversationItem struct {
 // ConversationPageData — данные для страницы диалога.
 type ConversationPageData struct {
 	PageData
-	WithUser    string
-	Messages    []*MessageItem
-	Pagination  PaginationData
+	WithUser   string
+	Messages   []*MessageItem
+	Pagination PaginationData
 }
 
 // MessageItem — сообщение в диалоге.

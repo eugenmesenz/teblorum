@@ -32,12 +32,6 @@ type Config struct {
 
 	// Rate limiting
 	RateLimitPerMinute int `json:"rate_limit_per_minute"`
-
-	// TLS
-	TLSCertFile string `json:"tls_cert_file"`
-	TLSKeyFile  string `json:"tls_key_file"`
-	TLSDomain   string `json:"tls_domain"` // для autocert
-	UseAutocert bool   `json:"use_autocert"`
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию.
@@ -78,9 +72,6 @@ func LoadConfig(path string) (*Config, error) {
 		"TEBLORUM_BOOTSTRAP_EMAIL":      &cfg.BootstrapEmail,
 		"TEBLORUM_BOOTSTRAP_PASSWORD":   &cfg.BootstrapPassword,
 		"TEBLORUM_BACKUP_DIR":           &cfg.BackupDir,
-		"TEBLORUM_TLS_CERT":             &cfg.TLSCertFile,
-		"TEBLORUM_TLS_KEY":              &cfg.TLSKeyFile,
-		"TEBLORUM_TLS_DOMAIN":           &cfg.TLSDomain,
 	}
 
 	for env, field := range envOverrides {
@@ -99,9 +90,6 @@ func LoadConfig(path string) (*Config, error) {
 		if v, err := strconv.Atoi(val); err == nil {
 			cfg.RateLimitPerMinute = v
 		}
-	}
-	if os.Getenv("TEBLORUM_USE_AUTOCERT") == "true" {
-		cfg.UseAutocert = true
 	}
 
 	return cfg, nil

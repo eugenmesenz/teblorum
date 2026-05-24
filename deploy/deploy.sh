@@ -41,7 +41,7 @@ else
     cat > ${CONFIG_FILE} << 'EOF'
 {
   "db_path": "/opt/teblorum/data/teblorum.db",
-  "addr": ":8080",
+  "addr": "127.0.0.1:8080",
   "backup_dir": "/opt/teblorum/backups",
   "session_ttl_days": 30,
   "rate_limit_per_minute": 60

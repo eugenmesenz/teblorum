@@ -81,19 +81,12 @@ func main() {
 	cleanup.Start()
 	defer cleanup.Stop()
 
-	// --- Запуск ---
+	// --- Запуск (всегда HTTP; для production используйте reverse proxy) ---
 	addr := cfg.Addr
 	log.Printf("teblorum запущен на %s", addr)
+	log.Printf("режим: HTTP (для production настройте reverse proxy — см. deploy/PRODUCTION.md)")
 
-	if cfg.UseAutocert && cfg.TLSDomain != "" {
-		log.Printf("TLS autocert для домена %s", cfg.TLSDomain)
-		log.Fatalf("autocert: %v", http.ListenAndServeTLS(addr, cfg.TLSCertFile, cfg.TLSKeyFile, h))
-	} else if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {
-		log.Printf("TLS с сертификатами %s, %s", cfg.TLSCertFile, cfg.TLSKeyFile)
-		log.Fatalf("server error: %v", http.ListenAndServeTLS(addr, cfg.TLSCertFile, cfg.TLSKeyFile, h))
-	} else {
-		if err := http.ListenAndServe(addr, h); err != nil {
-			log.Fatalf("server error: %v", err)
-		}
+	if err := http.ListenAndServe(addr, h); err != nil {
+		log.Fatalf("server error: %v", err)
 	}
 }
