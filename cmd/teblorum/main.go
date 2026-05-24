@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/teblorum/teblorum/internal/handler"
 	"github.com/teblorum/teblorum/internal/render"
 	"github.com/teblorum/teblorum/internal/repo"
+	"github.com/teblorum/teblorum/internal/service"
 	"github.com/teblorum/teblorum/webassets"
 )
 
@@ -29,24 +31,39 @@ func main() {
 	if err != nil {
 		log.Fatalf("init renderer: %v", err)
 	}
-	_ = renderer
 
-	// --- Роутер ---
-	mux := http.NewServeMux()
+	// --- Сервисы ---
+	userSvc := service.NewUserService(db)
+	postSvc := service.NewPostService(db)
+	commentSvc := service.NewCommentService(db)
+	messageSvc := service.NewMessageService(db)
+	modSvc := service.NewModerationService(db)
+	rootSvc := service.NewRootService(db, "./backups")
 
-	// Статика
-	subFS, err := fs.Sub(webassets.FS, "web/static")
+	deps := &handler.Dependencies{
+		DB:       db,
+		Renderer: renderer,
+		Users:    userSvc,
+		Posts:    postSvc,
+		Comments: commentSvc,
+		Messages: messageSvc,
+		Mod:      modSvc,
+		Root:     rootSvc,
+
+		GoogleClientID:     os.Getenv("TEBLORUM_GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("TEBLORUM_GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  os.Getenv("TEBLORUM_GOOGLE_REDIRECT_URL"),
+		SessionTTL:         30,
+	}
+
+	// --- Статика ---
+	staticFS, err := fs.Sub(webassets.FS, "web/static")
 	if err != nil {
 		log.Fatalf("open static fs: %v", err)
 	}
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(subFS))))
 
-	// --- Заглушки маршрутов (будут реализованы в Этапе 5) ---
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		renderer.PageHTTP(w, "feed", render.FeedPageData{
-			PageData: render.PageData{Title: "Лента", Theme: "light"},
-		}, render.DetectHTMX(r))
-	})
+	// --- Роутер с полной middleware-цепочкой ---
+	h := handler.SetupRoutes(deps, staticFS)
 
 	// --- Запуск ---
 	addr := os.Getenv("TEBLORUM_ADDR")
@@ -55,7 +72,7 @@ func main() {
 	}
 
 	log.Printf("teblorum запущен на %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, h); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
