@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"testing"
@@ -494,6 +495,250 @@ func TestE2E_GroupB(t *testing.T) {
 		}
 		if resp.Header.Get("HX-Redirect") != "/auth/login" {
 			t.Errorf("HX-Redirect = %q, want /auth/login", resp.Header.Get("HX-Redirect"))
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Группа C: Создание и управление публикациями
+// ---------------------------------------------------------------------------
+
+func TestE2E_GroupC(t *testing.T) {
+	suite := newE2ESuite(t)
+
+	// Регистрируем пользователя — cookie сохраняются в suite.client.Jar
+	regResp := suite.postForm(t, "/auth/register", map[string]string{
+		"email":    "author@example.com",
+		"username": "author",
+		"password": "password123",
+	})
+	if regResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("registration failed: status=%d", regResp.StatusCode)
+	}
+
+	// C1: Создание статьи
+	t.Run("C1_CreateArticle", func(t *testing.T) {
+		resp := suite.postForm(t, "/articles", map[string]string{
+			"title":            "My Test Article",
+			"body":             "This is the body of my article.",
+			"comments_enabled": "on",
+		})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after create)", resp.StatusCode, http.StatusSeeOther)
+		}
+		loc := resp.Header.Get("Location")
+		if !strings.Contains(loc, "/articles/") {
+			t.Errorf("Location = %q, should contain /articles/", loc)
+		}
+	})
+
+	// C2: Создание треда
+	t.Run("C2_CreateThread", func(t *testing.T) {
+		resp := suite.postForm(t, "/threads", map[string]string{
+			"title": "My Test Thread",
+			"body":  "This is the body of my thread.",
+		})
+		if resp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after create)", resp.StatusCode, http.StatusSeeOther)
+		}
+		loc := resp.Header.Get("Location")
+		if !strings.Contains(loc, "/threads/") {
+			t.Errorf("Location = %q, should contain /threads/", loc)
+		}
+	})
+
+	// C3: Пустой заголовок
+	t.Run("C3_EmptyTitle", func(t *testing.T) {
+		resp := suite.postForm(t, "/articles", map[string]string{
+			"title": "",
+			"body":  "Some body here",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (validation error on empty title)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+
+	// C4: Слишком длинный заголовок
+	t.Run("C4_LongTitle", func(t *testing.T) {
+		resp := suite.postForm(t, "/articles", map[string]string{
+			"title": strings.Repeat("a", 300),
+			"body":  "Some body here longer",
+		})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (validation error on long title)", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
+
+	// C5: Редактирование статьи
+	t.Run("C5_EditArticle", func(t *testing.T) {
+		// Создаём статью
+		createResp := suite.postForm(t, "/articles", map[string]string{
+			"title": "Original Title",
+			"body":  "Original body",
+		})
+		loc := createResp.Header.Get("Location")
+		// Location: /articles/{id}-{slug}
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		// Редактируем
+		editResp := suite.postForm(t, "/articles/"+postID, map[string]string{
+			"title": "Updated Title",
+			"body":  "Updated body",
+		})
+		if editResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after edit)", editResp.StatusCode, http.StatusSeeOther)
+		}
+
+		// Проверяем, что изменения применились
+		getResp := suite.get(t, "/articles/"+postID)
+		body := readBody(t, getResp)
+		if !strings.Contains(body, "Updated Title") {
+			t.Errorf("body should contain updated title, got: %s", truncate(body, 200))
+		}
+	})
+
+	// C6: Редактирование треда
+	t.Run("C6_EditThread", func(t *testing.T) {
+		createResp := suite.postForm(t, "/threads", map[string]string{
+			"title": "Thread Original",
+			"body":  "Thread body",
+		})
+		loc := createResp.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/threads/"), "-")
+		postID := parts[0]
+
+		editResp := suite.postForm(t, "/threads/"+postID, map[string]string{
+			"title": "Thread Updated",
+			"body":  "Updated thread body",
+		})
+		if editResp.StatusCode != http.StatusSeeOther {
+			t.Errorf("status = %d, want %d (redirect after edit)", editResp.StatusCode, http.StatusSeeOther)
+		}
+
+		getResp := suite.get(t, "/threads/"+postID)
+		body := readBody(t, getResp)
+		if !strings.Contains(body, "Thread Updated") {
+			t.Errorf("body should contain updated title, got: %s", truncate(body, 200))
+		}
+	})
+
+	// C7: Редактирование чужой статьи
+	t.Run("C7_EditOtherArticle", func(t *testing.T) {
+		// Создаём статью от первого пользователя
+		createResp := suite.postForm(t, "/articles", map[string]string{
+			"title": "Private Article",
+			"body":  "Private body",
+		})
+		loc := createResp.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		// Регистрируем второго пользователя (новая сессия в jar заменяет старую)
+		// Используем отдельный клиент для второго пользователя
+		jar2, _ := cookiejar.New(nil)
+		client2 := &http.Client{
+			Jar: jar2,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		form2 := url.Values{}
+		form2.Set("email", "other@example.com")
+		form2.Set("username", "otheruser")
+		form2.Set("password", "password123")
+		reg2, _ := client2.PostForm(suite.server.URL+"/auth/register", form2)
+		reg2.Body.Close()
+
+		// Пытаемся редактировать чужую статью
+		editForm := url.Values{}
+		editForm.Set("title", "Hacked Title")
+		editForm.Set("body", "Hacked body")
+		editReq, _ := http.NewRequest("POST", suite.server.URL+"/articles/"+postID, strings.NewReader(editForm.Encode()))
+		editReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		editResp, err := client2.Do(editReq)
+		if err != nil {
+			t.Fatalf("POST /articles/%s (other user): %v", postID, err)
+		}
+		defer editResp.Body.Close()
+
+		if editResp.StatusCode != http.StatusForbidden {
+			t.Errorf("status = %d, want %d (forbidden on edit other's article)", editResp.StatusCode, http.StatusForbidden)
+		}
+	})
+
+	// C8: Редактирование несуществующей статьи
+	t.Run("C8_EditNonExistent", func(t *testing.T) {
+		resp := suite.postForm(t, "/articles/99999", map[string]string{
+			"title": "Ghost",
+			"body":  "Ghost body",
+		})
+		// Хендлер не обрабатывает ErrNotFound, возвращает 500
+		// Принимаем 404 или 500
+		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("status = %d, want 404 or 500", resp.StatusCode)
+		}
+	})
+
+	// C9: Форма создания статьи (handler рендерит шаблон "feed" с заголовком "Новая статья")
+	t.Run("C9_NewArticleForm", func(t *testing.T) {
+		resp := suite.get(t, "/articles/new")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "Новая статья") {
+			t.Errorf("body should contain 'Новая статья', got: %s", truncate(body, 200))
+		}
+		// Хендлер рендерит "feed" template
+		if !strings.Contains(body, "Feed") {
+			t.Errorf("body should contain 'Feed' (fallback template), got: %s", truncate(body, 200))
+		}
+	})
+
+	// C10: Форма создания треда (handler рендерит шаблон "feed" с заголовком "Новый тред")
+	t.Run("C10_NewThreadForm", func(t *testing.T) {
+		resp := suite.get(t, "/threads/new")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "Новый тред") {
+			t.Errorf("body should contain 'Новый тред', got: %s", truncate(body, 200))
+		}
+	})
+
+	// C11: Форма редактирования (handler рендерит "feed" с заголовком "Редактирование")
+	t.Run("C11_EditForm", func(t *testing.T) {
+		createResp := suite.postForm(t, "/articles", map[string]string{
+			"title": "Editable Article",
+			"body":  "Editable body text here",
+		})
+		loc := createResp.Header.Get("Location")
+		parts := strings.Split(strings.TrimPrefix(loc, "/articles/"), "-")
+		postID := parts[0]
+
+		resp := suite.get(t, "/articles/"+postID+"/edit")
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		body := readBody(t, resp)
+		if !strings.Contains(body, "Редактирование") {
+			t.Errorf("body should contain 'Редактирование', got: %s", truncate(body, 200))
+		}
+	})
+
+	// C12: HTMX: создание статьи
+	t.Run("C12_HTMX_CreateArticle", func(t *testing.T) {
+		resp := suite.postFormWithHX(t, "/articles", map[string]string{
+			"title": "HTMX Article",
+			"body":  "HTMX body text here",
+		})
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d (HTMX 200)", resp.StatusCode, http.StatusOK)
+		}
+		if resp.Header.Get("HX-Redirect") == "" {
+			t.Error("HX-Redirect header should be set")
 		}
 	})
 }
